@@ -1,7 +1,6 @@
-const CACHE = 'prostop-v3';
+const CACHE = 'prostop-v4';
 const ASSETS = [
   '/',
-  '/index.html',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
@@ -42,7 +41,7 @@ self.addEventListener('fetch', e => {
         return res;
       }).catch(() => {
         if (e.request.mode === 'navigate') {
-          return caches.match('/index.html');
+          return caches.match('/');
         }
         return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
       });
