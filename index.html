@@ -30,24 +30,20 @@
     .phone{width:390px;height:844px;background:var(--bg);border-radius:50px;overflow:hidden;position:relative;box-shadow:0 40px 80px rgba(0,0,0,0.25),0 0 0 10px #1a1a1a,0 0 0 13px #333;}
 
     /* Standalone PWA — fullscreen, no phone frame */
-    @media all and (display-mode: standalone){
-      body{background:var(--bg);padding:0;margin:0;}
-      .phone{width:100%;height:100vh;height:100dvh;border-radius:0;box-shadow:none;max-width:100%;}
-      .sb{display:none !important;}
-      .bnav{padding-bottom:max(20px,env(safe-area-inset-bottom));}
-      .timer-hdr .sb{display:none !important;}
-      .ob-body{padding-top:max(20px,env(safe-area-inset-top));}
-      .home-hdr{padding-top:max(8px,env(safe-area-inset-top));}
-      .fab{bottom:max(90px,calc(70px + env(safe-area-inset-bottom)));}
-      .modal-sh{padding-bottom:max(40px,calc(20px + env(safe-area-inset-bottom)));}
-      .cov{padding-top:max(32px,env(safe-area-inset-top));}
-    }
-    /* Screen headers — safe area top in standalone */
+    /* Applied via .standalone class (JS) + media query fallback */
+    @media all and (display-mode: standalone){body.standalone{}}
+    body.standalone{background:var(--bg);padding:0;margin:0;}
+    body.standalone .phone{width:100%;height:100vh;height:100dvh;border-radius:0;box-shadow:none;max-width:100%;}
+    body.standalone .sb{display:none !important;}
+    body.standalone .bnav{padding-bottom:max(20px,env(safe-area-inset-bottom));}
+    body.standalone .ob-body{padding-top:max(20px,env(safe-area-inset-top));}
+    body.standalone .home-hdr{padding-top:max(8px,env(safe-area-inset-top));}
+    body.standalone .fab{bottom:max(90px,calc(70px + env(safe-area-inset-bottom)));}
+    body.standalone .modal-sh{padding-bottom:max(40px,calc(20px + env(safe-area-inset-bottom)));}
+    body.standalone .cov{padding-top:max(32px,env(safe-area-inset-top));}
     .scr-hdr{flex-shrink:0;}
-    @media all and (display-mode: standalone){
-      .scr-hdr{padding-top:max(4px,env(safe-area-inset-top)) !important;}
-      .timer-hdr{padding-top:max(14px,env(safe-area-inset-top)) !important;}
-    }
+    body.standalone .scr-hdr{padding-top:max(4px,env(safe-area-inset-top)) !important;}
+    body.standalone .timer-hdr{padding-top:max(14px,env(safe-area-inset-top)) !important;}
 
     /* Screens */
     .scr{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateX(30px);transition:opacity .22s ease,transform .22s ease;}
@@ -458,6 +454,11 @@
 </div>
 
 <script>
+// ===================== STANDALONE DETECT =====================
+if(window.navigator.standalone||window.matchMedia('(display-mode:standalone)').matches){
+  document.body.classList.add('standalone');
+}
+
 // ===================== STATE =====================
 let S = {
   name:'', method:null,
