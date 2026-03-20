@@ -445,18 +445,29 @@ let S = {
   selTask:null,   // timer task id
   cheeseTask:null, // cheese task id
   timer:{running:false,secs:25*60,total:25*60,phase:'work',session:1,done:0},
-  stats:{streak:5,focusMins:0,doneToday:0},
+  stats:{streak:0,focusMins:0,lastActiveDate:null},
   newDur:null, newClr:'#E8502A'
 };
 let TI = null;
 let cur = 'ob1';
 
 // ===================== PERSIST =====================
+function uid(){return Math.random().toString(36).substr(2,9);}
 function load(){
   try{
     const d=localStorage.getItem('ps2');
-    if(d){const p=JSON.parse(d);S={...S,...p};S.timer={...S.timer,running:false};}
+    if(d){const p=JSON.parse(d);S={...S,...p,timer:{...S.timer,...(p.timer||{}),running:false},stats:{...S.stats,...(p.stats||{})}};}
   }catch(e){}
+  updateStreak();
+}
+function updateStreak(){
+  const today=new Date().toDateString();
+  if(S.stats.lastActiveDate===today)return;
+  const last=S.stats.lastActiveDate?new Date(S.stats.lastActiveDate):null;
+  const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
+  if(last&&last.toDateString()===yesterday.toDateString()){S.stats.streak++;}
+  else if(!last||last.toDateString()!==today){S.stats.streak=1;}
+  S.stats.lastActiveDate=today;
 }
 function save(){
   try{localStorage.setItem('ps2',JSON.stringify(S));}catch(e){}
@@ -580,7 +591,7 @@ function toggleDone(id){
   const t=S.tasks.find(x=>x.id===id);
   if(!t)return;
   t.done=!t.done;
-  if(t.done){S.stats.doneToday++;showToast('✅ Задача выполнена!');}
+  if(t.done){showToast('✅ Задача выполнена!');}
   else{showToast('↩ Задача снова активна');}
   save();renderHome();
 }
@@ -622,7 +633,7 @@ function autoSplit(name,mins){
   const tpls=['Разобраться в задании и найти материалы','Написать план или набросок','Основная работа — часть 1','Основная работа — часть 2','Основная работа — часть 3','Проверить и оформить','Финальная проверка'];
   const parts=[];
   for(let i=0;i<chunks;i++){
-    parts.push({id:'p'+Date.now()+'_'+i,name:tpls[i]||'Часть '+(i+1),minutes:Math.min(mins-i*cs,cs),done:false});
+    parts.push({id:'p'+uid(),name:tpls[i]||'Часть '+(i+1),minutes:Math.min(mins-i*cs,cs),done:false});
   }
   return parts;
 }
@@ -683,12 +694,13 @@ function toggleTimer(){
   if(S.timer.running)pauseT();else startT();
 }
 function startT(){
+  if(TI)clearInterval(TI);
   S.timer.running=true;
   document.getElementById('t-play').textContent='⏸';
   TI=setInterval(()=>{
     S.timer.secs--;
-    if(S.timer.secs<=0){sessionEnd();}
-    else{updateDisp();updateProg();}
+    if(S.timer.secs<=0){S.timer.secs=0;updateDisp();updateProg();sessionEnd();return;}
+    updateDisp();updateProg();
     if(S.timer.secs%10===0)save();
   },1000);
 }
@@ -705,7 +717,7 @@ function resetTimer(){
 }
 function skipTimer(){pauseT();sessionEnd();}
 function sessionEnd(){
-  clearInterval(TI);S.timer.running=false;
+  clearInterval(TI);TI=null;S.timer.running=false;
   document.getElementById('t-play').textContent='▶';
   if(S.timer.phase==='work'){
     S.timer.done++;S.stats.focusMins+=25;
@@ -718,27 +730,27 @@ function sessionEnd(){
       document.getElementById('cov-p').textContent='Отлично! Заслуженный перерыв — 5 минут.';
     }
   }else{
-    if(S.timer.done>=4){S.timer.done=0;S.timer.session=1;}
-    else S.timer.session++;
-    S.timer.phase='work';S.timer.secs=S.timer.total=25*60;
-    updateDisp();updateProg();updatePhase();renderSessions();showToast('Время работать! 💪');
+    nextWorkSession();
+    showToast('Время работать! 💪');
   }
   save();
+}
+function nextWorkSession(){
+  if(S.timer.done>=4){S.timer.done=0;S.timer.session=1;}
+  else{S.timer.session++;}
+  S.timer.phase='work';S.timer.secs=S.timer.total=25*60;
+  updateDisp();updateProg();updatePhase();renderSessions();
 }
 function startBreak(){
   document.getElementById('cov').classList.remove('show');
   const isLong=S.timer.done>=4;
   S.timer.phase=isLong?'long-break':'break';
   S.timer.secs=S.timer.total=isLong?15*60:5*60;
-  if(!isLong)S.timer.session++;
   updateDisp();updateProg();updatePhase();renderSessions();startT();save();
 }
 function closeCov(){
   document.getElementById('cov').classList.remove('show');
-  if(S.timer.done>=4){S.timer.done=0;S.timer.session=1;}
-  else S.timer.session++;
-  S.timer.phase='work';S.timer.secs=S.timer.total=25*60;
-  updateDisp();updateProg();updatePhase();renderSessions();save();
+  nextWorkSession();save();
 }
 function startTaskTimer(id){
   if(id)S.selTask=id;
@@ -822,7 +834,7 @@ function addPart(tid){
   const ds=prompt('Сколько минут? (5-60):');const d=parseInt(ds);
   if(!d||d<5||d>120)return;
   const t=S.tasks.find(x=>x.id===tid);if(!t)return;
-  t.parts.push({id:'p'+Date.now(),name:n.trim(),minutes:d,done:false});
+  t.parts.push({id:'p'+uid(),name:n.trim(),minutes:d,done:false});
   save();renderCheese();showToast('✅ Кусочек добавлен!');
 }
 
@@ -914,7 +926,7 @@ if(S.name||S.tasks.length>0){
   // Service Worker
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
+      navigator.serviceWorker.register('/sw.js')
         .then(reg => {
           reg.addEventListener('updatefound', () => {
             const nw = reg.installing;
@@ -967,9 +979,11 @@ if(S.name||S.tasks.length>0){
   window.addEventListener('online', () => { updateOnline(); showToast('✅ Снова онлайн!'); });
   window.addEventListener('offline', () => { updateOnline(); showToast('📵 Нет интернета — работаем офлайн!'); });
 
-  // Hash routing for shortcuts
-  if (location.hash === '#timer') { window.addEventListener('load', () => go('timer')); }
-  if (location.hash === '#add') { window.addEventListener('load', () => { go('home'); setTimeout(openAdd, 300); }); }
+  // Hash routing for shortcuts (only for returning users)
+  if (S.name || S.tasks.length > 0) {
+    if (location.hash === '#timer') { window.addEventListener('load', () => go('timer')); }
+    if (location.hash === '#add') { window.addEventListener('load', () => { go('home'); setTimeout(openAdd, 300); }); }
+  }
   </script>
 </body>
 </html>

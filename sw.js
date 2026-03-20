@@ -1,4 +1,4 @@
-const CACHE = 'prostop-v2';
+const CACHE = 'prostop-v3';
 const ASSETS = [
   '/',
   '/index.html',
@@ -6,16 +6,16 @@ const ASSETS = [
   '/icon-192.png',
   '/icon-512.png',
   '/apple-touch-icon.png',
-  'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap',
-  'https://fonts.gstatic.com/s/nunito/v26/XRXI3I6Li01BKofiOc5wtlZ2di8HDLshRTM9jo7eTWk.woff2'
+  'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap'
 ];
 
 // Install — cache all assets
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => {
-      return Promise.allSettled(ASSETS.map(url => c.add(url).catch(() => {})));
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE)
+      .then(c => Promise.allSettled(ASSETS.map(url => c.add(url).catch(() => {}))))
+      .catch(() => {})
+      .then(() => self.skipWaiting())
   );
 });
 
@@ -35,22 +35,22 @@ self.addEventListener('fetch', e => {
     caches.match(e.request).then(cached => {
       if (cached) return cached;
       return fetch(e.request).then(res => {
-        if (res.ok) {
+        if (res.ok || res.type === 'opaque') {
           const clone = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, clone));
         }
         return res;
       }).catch(() => {
-        // Offline fallback for navigation
         if (e.request.mode === 'navigate') {
           return caches.match('/index.html');
         }
+        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
       });
     })
   );
 });
 
-// Background sync — notify when back online
+// Skip waiting on message
 self.addEventListener('message', e => {
   if (e.data && e.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
