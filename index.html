@@ -928,11 +928,14 @@ if(S.name||S.tasks.length>0){
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js')
         .then(reg => {
+          reg.update();
           reg.addEventListener('updatefound', () => {
             const nw = reg.installing;
             nw.addEventListener('statechange', () => {
               if (nw.state === 'installed' && navigator.serviceWorker.controller) {
-                showToast('🔄 Обновление установлено! Перезагрузи страницу.');
+                nw.postMessage({ type: 'SKIP_WAITING' });
+                showToast('🔄 Обновление установлено! Перезагружаю...');
+                setTimeout(() => location.reload(), 1500);
               }
             });
           });
