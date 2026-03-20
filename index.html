@@ -216,6 +216,19 @@
     .prog-bar{flex:1;background:var(--bg);height:8px;border-radius:4px;overflow:hidden;}
     .prog-fill{height:100%;background:var(--teal);border-radius:4px;transition:width .5s;}
 
+    /* Split loading */
+    .split-loading{display:flex;flex-direction:column;align-items:center;gap:12px;padding:32px 0;}
+    .split-spinner{width:36px;height:36px;border:4px solid var(--border);border-top-color:var(--coral);border-radius:50%;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .split-loading p{font-size:14px;font-weight:700;color:var(--text2);}
+
+    /* Inline part name editing */
+    .pname-edit{outline:none;border-bottom:2px solid var(--coral);padding-bottom:1px;min-width:60px;cursor:text;}
+    .pname-edit:focus{border-bottom-color:var(--teal);}
+
+    /* AI badge */
+    .ai-badge{display:inline-block;background:var(--purple-l);color:var(--purple);font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;}
+
     /* ===== STATS ===== */
     .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;}
     .scard{background:var(--card);border-radius:var(--rs);padding:14px;border:1px solid var(--border);}
@@ -649,14 +662,80 @@ function checkForm(){
   ab.style.opacity=ok?'1':'0.3';
   ab.style.pointerEvents=ok?'auto':'none';
 }
-function autoSplit(name,mins){
-  const cs=25,chunks=Math.ceil(mins/cs);
-  const tpls=['Разобраться в задании и найти материалы','Написать план или набросок','Основная работа — часть 1','Основная работа — часть 2','Основная работа — часть 3','Проверить и оформить','Финальная проверка'];
+function adaptiveChunks(minutes){
+  if(minutes<=25)return [{frac:1}];
+  if(minutes<=35)return [{frac:.5},{frac:.5}];
+  if(minutes<=50){const edge=10/minutes;return [{frac:edge},{frac:1-2*edge},{frac:edge}];}
+  if(minutes<=70){const n=minutes<=60?4:5;const work=n-2;const prep=15/minutes;const check=15/minutes;const wf=(1-prep-check)/work;const r=[];r.push({frac:prep});for(let i=0;i<work;i++)r.push({frac:wf});r.push({frac:check});return r;}
+  const cnt=Math.ceil(minutes/20);const f=1/cnt;return Array.from({length:cnt},()=>({frac:f}));
+}
+function classifyTask(name){
+  const n=name.toLowerCase();
+  if(/реферат|сочинени|эссе|доклад|изложени|статья/.test(n))return 'essay';
+  if(/пример|уравнени|задач[аи]|математик|алгебр|геометр|физик|формул/.test(n))return 'math';
+  if(/читать|прочитать|чтени|параграф|глав[аы]|книг|текст|литератур/.test(n))return 'reading';
+  if(/проект|презентац|плакат|макет|стенд/.test(n))return 'project';
+  if(/выучить|запомнить|учить|заучить|слов[аа]|стих|правил|билет|экзамен/.test(n))return 'memorize';
+  if(/рисов|рисунок|нарисова|слепить|поделк|аппликац|творч/.test(n))return 'creative';
+  return 'generic';
+}
+function localFallbackTemplates(name,minutes){
+  const cat=classifyTask(name);
+  const ch=adaptiveChunks(minutes);
+  const templates={
+    essay:['Найти источники и материалы','Составить план текста','Написать введение','Написать основную часть','Написать заключение','Оформить и проверить ошибки'],
+    math:['Повторить формулы и правила','Разобрать первые примеры','Решить примеры средней сложности','Решить сложные примеры','Проверить все ответы'],
+    reading:['Просмотреть текст и заголовки','Прочитать первую часть','Прочитать основную часть','Выписать главные мысли','Ответить на вопросы по тексту'],
+    project:['Собрать материалы и идеи','Составить план проекта','Сделать основную часть','Оформить визуальную часть','Подготовить презентацию/защиту','Финальная проверка'],
+    memorize:['Прочитать весь материал','Выделить ключевые моменты','Первое повторение','Повторение с закрытой тетрадью','Финальная проверка знаний'],
+    creative:['Придумать идею и набросать план','Подготовить материалы','Основная работа — часть 1','Основная работа — часть 2','Довести до конца и проверить'],
+    generic:['Разобраться в задании','Составить план работы','Основная работа — часть 1','Основная работа — часть 2','Основная работа — часть 3','Проверить и оформить']
+  };
+  const tpl=templates[cat]||templates.generic;
   const parts=[];
-  for(let i=0;i<chunks;i++){
-    parts.push({id:'p'+uid(),name:tpls[i]||'Часть '+(i+1),minutes:Math.min(mins-i*cs,cs),done:false});
-  }
+  let remaining=minutes;
+  ch.forEach((c,i)=>{
+    const m=i===ch.length-1?remaining:Math.max(5,Math.round(minutes*c.frac));
+    remaining-=m;
+    parts.push({id:'p'+uid(),name:tpl[i%tpl.length]||(tpl[tpl.length-1]),minutes:m,done:false});
+  });
   return parts;
+}
+function renderCheeseLoading(task){
+  return `<div class="cth">
+    <div class="cth-lbl">Разбиваем задачу</div>
+    <div class="cth-n">${esc(task.name)}</div>
+    <div class="cth-meta"><div class="cth-badge">${fmtDur(task.minutes)}</div></div>
+  </div>
+  <div class="split-loading">
+    <div class="split-spinner"></div>
+    <p>Генерирую план...</p>
+  </div>`;
+}
+function renamePart(tid,pid,newName){
+  const t=S.tasks.find(x=>x.id===tid);if(!t)return;
+  const p=t.parts.find(x=>x.id===pid);if(!p)return;
+  const trimmed=newName.trim();
+  if(trimmed&&trimmed!==p.name){p.name=trimmed;save();}
+}
+async function autoSplit(name,minutes){
+  try{
+    const controller=new AbortController();
+    const timeout=setTimeout(()=>controller.abort(),9000);
+    const resp=await fetch('/api/split',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      signal:controller.signal,
+      body:JSON.stringify({name,minutes})
+    });
+    clearTimeout(timeout);
+    if(!resp.ok)throw new Error('API error');
+    const data=await resp.json();
+    if(!data.parts||!Array.isArray(data.parts)||!data.parts.length)throw new Error('Bad response');
+    return data.parts.map(p=>({id:'p'+uid(),name:p.name,minutes:p.minutes,done:false,ai:true}));
+  }catch(e){
+    return localFallbackTemplates(name,minutes);
+  }
 }
 function saveTask(){
   const name=document.getElementById('tn-inp').value.trim();
@@ -779,10 +858,15 @@ function startTaskTimer(id){
 }
 
 // ===================== CHEESE =====================
-function selectCheese(id){
+async function selectCheese(id){
   const t=S.tasks.find(x=>x.id===id);
-  if(t&&(!t.parts||!t.parts.length)){t.parts=autoSplit(t.name,t.minutes);save();}
-  S.cheeseTask=id;renderCheese();
+  S.cheeseTask=id;
+  if(t&&(!t.parts||!t.parts.length)){
+    document.getElementById('cheese-cnt').innerHTML=renderCheeseLoading(t);
+    t.parts=await autoSplit(t.name,t.minutes);
+    save();
+  }
+  renderCheese();
 }
 function renderCheese(){
   const cnt=document.getElementById('cheese-cnt');
@@ -809,13 +893,18 @@ function renderCheese(){
       }
     }
   }else{
-    if(!ct.parts||!ct.parts.length){ct.parts=autoSplit(ct.name,ct.minutes);save();}
+    if(!ct.parts||!ct.parts.length){
+      cnt.innerHTML=renderCheeseLoading(ct);
+      autoSplit(ct.name,ct.minutes).then(parts=>{ct.parts=parts;save();renderCheese();});
+      return;
+    }
     const dc=ct.parts.filter(p=>p.done).length,tot=ct.parts.length;
+    const hasAi=ct.parts.some(p=>p.ai);
     const pct=tot?Math.round((dc/tot)*100):0;
     h+=`<div class="cth">
       <div class="cth-lbl">Разбиваем задачу</div>
       <div class="cth-n">${esc(ct.name)}</div>
-      <div class="cth-meta"><div class="cth-badge">${fmtDur(ct.minutes)}</div><div class="cth-badge">${tot} кусочков</div></div>
+      <div class="cth-meta"><div class="cth-badge">${fmtDur(ct.minutes)}</div><div class="cth-badge">${tot} кусочков</div>${hasAi?'<div class="cth-badge">AI</div>':''}</div>
     </div>
     <div class="prog-row">
       <div><div class="prog-pct">${pct}%</div><div style="font-size:12px;font-weight:700;color:var(--text3);">готово</div></div>
@@ -826,7 +915,7 @@ function renderCheese(){
     ct.parts.forEach((p,i)=>{
       h+=`<div class="part-item${p.done?' done':''}">
         <span class="pnum">${i+1}</span>
-        <span class="pname">${esc(p.name)}</span>
+        <span class="pname pname-edit" contenteditable="true" onblur="renamePart('${ct.id}','${p.id}',this.textContent)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">${esc(p.name)}</span>${p.ai?'<span class="ai-badge">AI</span>':''}
         <span class="pdur">${p.minutes} мин</span>
         <button class="pstart" onclick="startPartTimer('${ct.id}','${p.id}')" title="Запустить таймер">▶</button>
         <div class="pchk" onclick="togglePart('${ct.id}','${p.id}')"></div>
