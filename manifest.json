@@ -2,7 +2,7 @@
   "name": "ProStop — перестань откладывать",
   "short_name": "ProStop",
   "description": "Приложение для борьбы с прокрастинацией. Метод лягушки, сыра и помидора.",
-  "start_url": "./index.html",
+  "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#E8E4DC",
@@ -28,14 +28,14 @@
       "name": "Добавить задачу",
       "short_name": "Задача",
       "description": "Быстро добавить новую задачу",
-      "url": "./index.html#add",
+      "url": "/#add",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     },
     {
       "name": "Запустить таймер",
       "short_name": "Таймер",
       "description": "Запустить помидор прямо сейчас",
-      "url": "./index.html#timer",
+      "url": "/#timer",
       "icons": [{ "src": "icon-192.png", "sizes": "192x192" }]
     }
   ]

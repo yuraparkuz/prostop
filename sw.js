@@ -1,11 +1,11 @@
-const CACHE = 'prostop-v1';
+const CACHE = 'prostop-v2';
 const ASSETS = [
-  './',
-  './index.html',
-  './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
-  './apple-touch-icon.png',
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/apple-touch-icon.png',
   'https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap',
   'https://fonts.gstatic.com/s/nunito/v26/XRXI3I6Li01BKofiOc5wtlZ2di8HDLshRTM9jo7eTWk.woff2'
 ];
@@ -43,7 +43,7 @@ self.addEventListener('fetch', e => {
       }).catch(() => {
         // Offline fallback for navigation
         if (e.request.mode === 'navigate') {
-          return caches.match('./index.html');
+          return caches.match('/index.html');
         }
       });
     })
