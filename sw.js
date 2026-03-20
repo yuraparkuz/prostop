@@ -1,4 +1,4 @@
-const CACHE = 'prostop-v9';
+const CACHE = 'prostop-v10';
 const ASSETS = [
   '/',
   '/manifest.json',

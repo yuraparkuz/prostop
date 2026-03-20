@@ -240,10 +240,11 @@
     /* AI badge */
     .ai-badge{display:inline-block;background:var(--purple-l);color:var(--purple);font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;}
 
-    /* Theme toggle */
-    .theme-btn{position:absolute;right:20px;top:10px;width:36px;height:36px;border-radius:50%;border:none;font-size:18px;cursor:pointer;background:var(--card);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;transition:transform .15s;z-index:5;}
-    .theme-btn:active{transform:scale(.9);}
-    body.standalone .theme-btn{top:max(10px,env(safe-area-inset-top));}
+    /* Header buttons */
+    .hdr-btns{position:absolute;right:20px;top:10px;display:flex;gap:6px;z-index:5;}
+    body.standalone .hdr-btns{top:max(10px,env(safe-area-inset-top));}
+    .hdr-btn{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);font-size:18px;cursor:pointer;background:var(--card);display:flex;align-items:center;justify-content:center;transition:transform .15s;}
+    .hdr-btn:active{transform:scale(.9);}
 
     /* Dark mode overrides for elements with hardcoded colors */
     .dark .modal-ov{background:rgba(0,0,0,.65);}
@@ -385,7 +386,10 @@
   <div class="scr" id="s-home">
     <div class="sb"><span class="sb-time" id="t2">9:41</span><span>●●●</span></div>
     <div class="home-hdr" style="position:relative;">
-      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()">🌙</button>
+      <div class="hdr-btns">
+        <button class="hdr-btn" id="mute-btn" onclick="toggleMute()">🔔</button>
+        <button class="hdr-btn" id="theme-btn" onclick="toggleTheme()">🌙</button>
+      </div>
       <div class="sub" id="home-date">Четверг, 19 марта</div>
       <div class="title-lg" id="home-title">ProStop 🐸</div>
     </div>
@@ -422,6 +426,16 @@
         <button class="t-btn-sec" onclick="skipTimer()" title="Пропустить">⏭</button>
       </div>
       <div class="t-tip" id="t-tip">Убери телефон! Только ты и задача — 25 минут.</div>
+      <div id="t-dur-cfg" style="width:100%;margin-top:10px;">
+        <div class="form-lbl" style="margin-bottom:6px;">Длительность сессии</div>
+        <div class="dur-wrap" id="work-dur-wrap">
+          <button class="dur-btn" onclick="setWorkMins(15,this)">15</button>
+          <button class="dur-btn" onclick="setWorkMins(20,this)">20</button>
+          <button class="dur-btn sel" onclick="setWorkMins(25,this)">25</button>
+          <button class="dur-btn" onclick="setWorkMins(30,this)">30</button>
+          <button class="dur-btn" onclick="setWorkMins(45,this)">45</button>
+        </div>
+      </div>
     </div>
     <div class="cov" id="cov">
       <div class="cov-ico">🎉</div>
@@ -577,12 +591,21 @@ initTheme();
 
 // ===================== SOUND & HAPTICS =====================
 let audioCtx=null;
+let muted=localStorage.getItem('ps-muted')==='1';
+function toggleMute(){
+  muted=!muted;
+  localStorage.setItem('ps-muted',muted?'1':'0');
+  updateMuteBtn();
+  if(!muted)sndClick();
+}
+function updateMuteBtn(){const b=document.getElementById('mute-btn');if(b)b.textContent=muted?'🔕':'🔔';}
 function getAudioCtx(){
   if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
   if(audioCtx.state==='suspended')audioCtx.resume();
   return audioCtx;
 }
 function playTone(freq,dur,type='sine',vol=0.3){
+  if(muted)return;
   try{
     const ctx=getAudioCtx();
     const osc=ctx.createOscillator();
@@ -599,7 +622,7 @@ function sndSessionEnd(){playTone(784,.15);setTimeout(()=>playTone(988,.15),150)
 function sndClick(){playTone(880,.06,'sine',0.15);}
 function sndDelete(){playTone(330,.12,'triangle',0.2);}
 function sndTimer(){playTone(440,.08);setTimeout(()=>playTone(440,.08),150);setTimeout(()=>playTone(554,.12),300);}
-function vibrate(pattern){try{navigator.vibrate&&navigator.vibrate(pattern);}catch(e){}}
+function vibrate(pattern){if(muted)return;try{navigator.vibrate&&navigator.vibrate(pattern);}catch(e){}}
 
 // ===================== STATE =====================
 let S = {
@@ -608,6 +631,7 @@ let S = {
   selTask:null,   // timer task id
   cheeseTask:null, // cheese task id
   timer:{running:false,secs:25*60,total:25*60,phase:'work',session:1,done:0},
+  settings:{workMins:25,breakMins:5,longBreakMins:15},
   stats:{streak:0,focusMins:0,focusToday:0,focusDate:null,lastActiveDate:null,lastProductiveDate:null},
   newDur:null, newClr:'#E8502A'
 };
@@ -619,7 +643,7 @@ function uid(){return Math.random().toString(36).substr(2,9);}
 function load(){
   try{
     const d=localStorage.getItem('ps2');
-    if(d){const p=JSON.parse(d);S={...S,...p,timer:{...S.timer,...(p.timer||{}),running:false},stats:{...S.stats,...(p.stats||{})}};}
+    if(d){const p=JSON.parse(d);S={...S,...p,timer:{...S.timer,...(p.timer||{}),running:false},stats:{...S.stats,...(p.stats||{})},settings:{...S.settings,...(p.settings||{})}};}
   }catch(e){}
   updateStreak();
 }
@@ -631,6 +655,13 @@ function updateStreak(){
   const today=new Date().toDateString();
   S.stats.lastActiveDate=today;
   resetDailyFocus();
+  // Reset streak if more than 1 day since last productive day
+  if(S.stats.lastProductiveDate){
+    const last=new Date(S.stats.lastProductiveDate);
+    const now=new Date();
+    const diffDays=Math.floor((now-last)/(1000*60*60*24));
+    if(diffDays>1&&S.stats.lastProductiveDate!==today){S.stats.streak=0;save();}
+  }
 }
 function bumpStreak(){
   const today=new Date().toDateString();
@@ -933,7 +964,7 @@ function renderTimer(){
     if(t.id===S.selTask)opt.selected=true;
     sel.appendChild(opt);
   });
-  renderSessions();updateDisp();updatePhase();updateProg();
+  renderSessions();updateDisp();updatePhase();updateProg();renderDurBtns();
 }
 function changeTimerTask(id){
   S.selTask=id||null;
@@ -956,9 +987,9 @@ function updateDisp(){
 }
 function updatePhase(){
   const p=S.timer.phase;
-  const phases={work:'🎯 Рабочее время',break:'☕ Короткий перерыв (5 мин)','long-break':'🛋 Большой перерыв (15 мин)'};
+  const phases={work:'🎯 Рабочее время',break:'☕ Короткий перерыв ('+S.settings.breakMins+' мин)','long-break':'🛋 Большой перерыв ('+S.settings.longBreakMins+' мин)'};
   document.getElementById('t-phase').textContent=phases[p]||phases.work;
-  const tips={work:'Убери телефон! Только ты и задача — 25 минут.',break:'Встань, потянись, выпей воды. Ты заслужил!','long-break':'Большой перерыв! Погуляй или перекуси.'};
+  const tips={work:'Убери телефон! Только ты и задача — '+S.settings.workMins+' минут.',break:'Встань, потянись, выпей воды. Ты заслужил!','long-break':'Большой перерыв! Погуляй или перекуси.'};
   document.getElementById('t-tip').textContent=tips[p]||tips.work;
 }
 function updateProg(){
@@ -969,12 +1000,15 @@ function toggleTimer(){
   vibrate(20);
   if(S.timer.running)pauseT();else startT();
 }
+let timerStart=0,timerSecsAtStart=0;
 function startT(){
   if(TI)clearInterval(TI);
   S.timer.running=true;
+  timerStart=Date.now();timerSecsAtStart=S.timer.secs;
   document.getElementById('t-play').textContent='⏸';
   TI=setInterval(()=>{
-    S.timer.secs--;
+    const elapsed=Math.floor((Date.now()-timerStart)/1000);
+    S.timer.secs=Math.max(0,timerSecsAtStart-elapsed);
     if(S.timer.secs<=0){S.timer.secs=0;updateDisp();updateProg();sessionEnd();return;}
     updateDisp();updateProg();
     if(S.timer.secs%10===0)save();
@@ -987,8 +1021,8 @@ function pauseT(){
 }
 function resetTimer(){
   pauseT();
-  const dur={work:25*60,break:5*60,'long-break':15*60};
-  S.timer.secs=S.timer.total=dur[S.timer.phase]||25*60;
+  const dur={work:S.settings.workMins*60,break:S.settings.breakMins*60,'long-break':S.settings.longBreakMins*60};
+  S.timer.secs=S.timer.total=dur[S.timer.phase]||S.settings.workMins*60;
   updateDisp();updateProg();
 }
 function skipTimer(){pauseT();sessionEnd();}
@@ -1016,19 +1050,33 @@ function sessionEnd(){
 function nextWorkSession(){
   if(S.timer.done>=4){S.timer.done=0;S.timer.session=1;}
   else{S.timer.session++;}
-  S.timer.phase='work';S.timer.secs=S.timer.total=25*60;
+  S.timer.phase='work';S.timer.secs=S.timer.total=S.settings.workMins*60;
   updateDisp();updateProg();updatePhase();renderSessions();
 }
 function startBreak(){
   document.getElementById('cov').classList.remove('show');
   const isLong=S.timer.done>=4;
   S.timer.phase=isLong?'long-break':'break';
-  S.timer.secs=S.timer.total=isLong?15*60:5*60;
+  S.timer.secs=S.timer.total=isLong?S.settings.longBreakMins*60:S.settings.breakMins*60;
   updateDisp();updateProg();updatePhase();renderSessions();startT();save();
 }
 function closeCov(){
   document.getElementById('cov').classList.remove('show');
   nextWorkSession();save();
+}
+function setWorkMins(m,el){
+  S.settings.workMins=m;
+  S.settings.breakMins=m<=20?3:5;
+  S.settings.longBreakMins=m<=20?10:15;
+  document.querySelectorAll('#work-dur-wrap .dur-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  if(!S.timer.running){S.timer.phase='work';S.timer.secs=S.timer.total=m*60;updateDisp();updateProg();}
+  updatePhase();save();
+}
+function renderDurBtns(){
+  document.querySelectorAll('#work-dur-wrap .dur-btn').forEach(b=>{
+    b.classList.toggle('sel',parseInt(b.textContent)===S.settings.workMins);
+  });
 }
 function startTaskTimer(id){
   if(id)S.selTask=id;
@@ -1221,6 +1269,7 @@ function showToast(msg){
 // ===================== INIT =====================
 load();
 S.timer.running=false;
+updateMuteBtn();
 if(S.name||S.tasks.length>0){
   document.getElementById('s-ob1').classList.remove('on');
   cur='home';
