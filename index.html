@@ -229,6 +229,13 @@
     /* AI badge */
     .ai-badge{display:inline-block;background:var(--purple-l);color:var(--purple);font-size:10px;font-weight:800;padding:2px 6px;border-radius:6px;margin-left:6px;vertical-align:middle;letter-spacing:.3px;}
 
+    /* Task actions */
+    .task-actions{display:flex;gap:6px;flex-shrink:0;margin-left:4px;}
+    .ta-btn{width:28px;height:28px;border-radius:50%;border:none;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s;}
+    .ta-btn:active{transform:scale(.9);}
+    .ta-edit{background:var(--amber-l);color:var(--amber-d);}
+    .ta-del{background:var(--coral-l);color:var(--coral-d);}
+
     /* ===== STATS ===== */
     .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;}
     .scard{background:var(--card);border-radius:var(--rs);padding:14px;border:1px solid var(--border);}
@@ -464,6 +471,48 @@
       <button class="btn btn-p" id="add-btn" onclick="saveTask()" style="opacity:.3;pointer-events:none;margin-top:4px;">Добавить задачу</button>
     </div>
   </div>
+
+  <!-- ===== EDIT TASK MODAL ===== -->
+  <div class="modal-ov" id="edit-modal" onclick="if(event.target===this)closeEditModal()">
+    <div class="modal-sh">
+      <div class="modal-handle"></div>
+      <div style="font-size:20px;font-weight:900;margin-bottom:16px;">Редактировать задачу ✏️</div>
+      <div class="ff">
+        <label class="form-lbl">Название</label>
+        <input class="form-inp" id="et-name" type="text" autocomplete="off">
+      </div>
+      <div class="ff">
+        <label class="form-lbl">Время выполнения</label>
+        <div class="dur-wrap" id="et-dur-wrap">
+          <button class="dur-btn" onclick="pickEditDur(20,this)">20 мин</button>
+          <button class="dur-btn" onclick="pickEditDur(30,this)">30 мин</button>
+          <button class="dur-btn" onclick="pickEditDur(45,this)">45 мин</button>
+          <button class="dur-btn" onclick="pickEditDur(60,this)">1 час</button>
+          <button class="dur-btn" onclick="pickEditDur(90,this)">90 мин</button>
+          <button class="dur-btn" onclick="pickEditDur(120,this)">2+ ч</button>
+        </div>
+      </div>
+      <button class="btn btn-t" onclick="saveEditTask()" style="margin-top:4px;">Сохранить</button>
+      <button class="btn-ghost" style="color:var(--coral);text-decoration:none;margin-top:8px;width:100%;" onclick="deleteTaskFromEdit()">Удалить задачу</button>
+    </div>
+  </div>
+
+  <!-- ===== ADD PART MODAL ===== -->
+  <div class="modal-ov" id="part-modal" onclick="if(event.target===this)closePartModal()">
+    <div class="modal-sh">
+      <div class="modal-handle"></div>
+      <div style="font-size:20px;font-weight:900;margin-bottom:16px;">Добавить кусочек 🧀</div>
+      <div class="ff">
+        <label class="form-lbl">Название</label>
+        <input class="form-inp" id="pn-inp" type="text" placeholder="Например: Написать введение" oninput="checkPartForm()" autocomplete="off">
+      </div>
+      <div class="ff">
+        <label class="form-lbl">Минуты (5–60)</label>
+        <input class="form-inp" id="pm-inp" type="number" min="5" max="60" placeholder="25" oninput="checkPartForm()" autocomplete="off">
+      </div>
+      <button class="btn btn-t" id="add-part-btn" onclick="saveNewPart()" style="opacity:.3;pointer-events:none;margin-top:4px;">Добавить</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -479,7 +528,7 @@ let S = {
   selTask:null,   // timer task id
   cheeseTask:null, // cheese task id
   timer:{running:false,secs:25*60,total:25*60,phase:'work',session:1,done:0},
-  stats:{streak:0,focusMins:0,lastActiveDate:null},
+  stats:{streak:0,focusMins:0,focusToday:0,focusDate:null,lastActiveDate:null,lastProductiveDate:null},
   newDur:null, newClr:'#E8502A'
 };
 let TI = null;
@@ -494,14 +543,23 @@ function load(){
   }catch(e){}
   updateStreak();
 }
+function resetDailyFocus(){
+  const today=new Date().toDateString();
+  if(S.stats.focusDate!==today){S.stats.focusToday=0;S.stats.focusDate=today;}
+}
 function updateStreak(){
   const today=new Date().toDateString();
-  if(S.stats.lastActiveDate===today)return;
-  const last=S.stats.lastActiveDate?new Date(S.stats.lastActiveDate):null;
+  S.stats.lastActiveDate=today;
+  resetDailyFocus();
+}
+function bumpStreak(){
+  const today=new Date().toDateString();
+  if(S.stats.lastProductiveDate===today)return;
+  const last=S.stats.lastProductiveDate?new Date(S.stats.lastProductiveDate):null;
   const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
   if(last&&last.toDateString()===yesterday.toDateString()){S.stats.streak++;}
   else if(!last||last.toDateString()!==today){S.stats.streak=1;}
-  S.stats.lastActiveDate=today;
+  S.stats.lastProductiveDate=today;
 }
 function save(){
   try{localStorage.setItem('ps2',JSON.stringify(S));}catch(e){}
@@ -590,6 +648,10 @@ function renderHome(){
         <div class="tdot" style="background:${task.color}"></div>
         <span class="tn">${esc(task.name)}</span>
         <span class="tdur">${fmtDur(task.minutes)}</span>
+        <div class="task-actions">
+          <button class="ta-btn ta-edit" onclick="openEditTask('${task.id}',event)" title="Редактировать">✎</button>
+          <button class="ta-btn ta-del" onclick="deleteTask('${task.id}',event)" title="Удалить">✕</button>
+        </div>
         <div class="tchk"></div>
       </div>`;
     });
@@ -625,9 +687,42 @@ function toggleDone(id){
   const t=S.tasks.find(x=>x.id===id);
   if(!t)return;
   t.done=!t.done;
-  if(t.done){showToast('✅ Задача выполнена!');}
+  if(t.done){bumpStreak();showToast('✅ Задача выполнена!');}
   else{showToast('↩ Задача снова активна');}
   save();renderHome();
+}
+
+// ===================== EDIT/DELETE TASK =====================
+let editTaskId=null,editDur=null;
+function openEditTask(id,ev){
+  ev&&ev.stopPropagation();
+  const t=S.tasks.find(x=>x.id===id);if(!t)return;
+  editTaskId=id;editDur=t.minutes;
+  document.getElementById('et-name').value=t.name;
+  document.querySelectorAll('#et-dur-wrap .dur-btn').forEach(b=>{b.classList.toggle('sel',parseInt(b.textContent)===t.minutes||(t.minutes===60&&b.textContent.includes('час'))||(t.minutes===120&&b.textContent.includes('2+')));});
+  document.getElementById('edit-modal').classList.add('open');
+}
+function closeEditModal(){document.getElementById('edit-modal').classList.remove('open');editTaskId=null;}
+function pickEditDur(m,el){editDur=m;document.querySelectorAll('#et-dur-wrap .dur-btn').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');}
+function saveEditTask(){
+  const t=S.tasks.find(x=>x.id===editTaskId);if(!t)return;
+  const name=document.getElementById('et-name').value.trim();
+  if(name)t.name=name;
+  if(editDur)t.minutes=editDur;
+  save();closeEditModal();renderHome();showToast('✅ Задача обновлена!');
+}
+function deleteTask(id,ev){
+  ev&&ev.stopPropagation();
+  const t=S.tasks.find(x=>x.id===id);if(!t)return;
+  if(!confirm('Удалить «'+t.name+'»?'))return;
+  S.tasks=S.tasks.filter(x=>x.id!==id);
+  if(S.selTask===id)S.selTask=null;
+  if(S.cheeseTask===id)S.cheeseTask=null;
+  save();renderHome();showToast('🗑 Задача удалена');
+}
+function deleteTaskFromEdit(){
+  if(!editTaskId)return;
+  deleteTask(editTaskId);closeEditModal();
 }
 
 // ===================== ADD TASK =====================
@@ -820,7 +915,7 @@ function sessionEnd(){
   clearInterval(TI);TI=null;S.timer.running=false;
   document.getElementById('t-play').textContent='▶';
   if(S.timer.phase==='work'){
-    S.timer.done++;S.stats.focusMins+=25;
+    S.timer.done++;resetDailyFocus();S.stats.focusMins+=Math.round(S.timer.total/60);S.stats.focusToday+=Math.round(S.timer.total/60);bumpStreak();
     const cov=document.getElementById('cov');cov.classList.add('show');
     if(S.timer.done>=4){
       document.getElementById('cov-h').textContent='4 помидора! Ты супер! 🏆';
@@ -949,16 +1044,36 @@ function startPartTimer(tid,pid){
   S.selTask=tid;
   const t=S.tasks.find(x=>x.id===tid);
   const p=t?t.parts.find(x=>x.id===pid):null;
-  if(p)document.getElementById('t-task').textContent=p.name;
+  if(p){
+    S.timer.phase='work';
+    S.timer.secs=S.timer.total=p.minutes*60;
+  }
   go('timer');
 }
+let addPartTid=null;
 function addPart(tid){
-  const n=prompt('Название кусочка:');if(!n||!n.trim())return;
-  const ds=prompt('Сколько минут? (5-60):');const d=parseInt(ds);
-  if(!d||d<5||d>120)return;
-  const t=S.tasks.find(x=>x.id===tid);if(!t)return;
-  t.parts.push({id:'p'+uid(),name:n.trim(),minutes:d,done:false});
-  save();renderCheese();showToast('✅ Кусочек добавлен!');
+  addPartTid=tid;
+  document.getElementById('pn-inp').value='';
+  document.getElementById('pm-inp').value='';
+  const b=document.getElementById('add-part-btn');b.style.opacity='.3';b.style.pointerEvents='none';
+  document.getElementById('part-modal').classList.add('open');
+  setTimeout(()=>document.getElementById('pn-inp').focus(),400);
+}
+function closePartModal(){document.getElementById('part-modal').classList.remove('open');addPartTid=null;}
+function checkPartForm(){
+  const n=document.getElementById('pn-inp').value.trim();
+  const m=parseInt(document.getElementById('pm-inp').value);
+  const ok=n&&m>=5&&m<=60;
+  const b=document.getElementById('add-part-btn');
+  b.style.opacity=ok?'1':'0.3';b.style.pointerEvents=ok?'auto':'none';
+}
+function saveNewPart(){
+  const n=document.getElementById('pn-inp').value.trim();
+  const m=parseInt(document.getElementById('pm-inp').value);
+  if(!n||!m||m<5||m>60||!addPartTid)return;
+  const t=S.tasks.find(x=>x.id===addPartTid);if(!t)return;
+  t.parts.push({id:'p'+uid(),name:n,minutes:m,done:false});
+  save();closePartModal();renderCheese();showToast('✅ Кусочек добавлен!');
 }
 
 // ===================== STATS =====================
@@ -966,14 +1081,15 @@ function renderStats(){
   document.getElementById('stats-date').textContent=dateStr();
   const t=S.tasks;
   const done=t.filter(x=>x.done).length,total=t.length;
-  const fm=S.stats.focusMins;
+  resetDailyFocus();
+  const fm=S.stats.focusToday;
   const fh=Math.floor(fm/60),fr=fm%60;
   const fs=fh?fh+'ч '+fr+'м':fr+'м';
   const rate=total?Math.round((done/total)*100):0;
   const big=t.filter(x=>x.minutes>=60),mid=t.filter(x=>x.minutes>=30&&x.minutes<60),sm=t.filter(x=>x.minutes<30);
-  const bp=big.length?Math.round((big.filter(x=>!x.done).length/big.length)*100):80;
-  const mp=mid.length?Math.round((mid.filter(x=>!x.done).length/mid.length)*100):45;
-  const sp=sm.length?Math.round((sm.filter(x=>!x.done).length/sm.length)*100):12;
+  const bp=big.length?Math.round((big.filter(x=>!x.done).length/big.length)*100):0;
+  const mp=mid.length?Math.round((mid.filter(x=>!x.done).length/mid.length)*100):0;
+  const sp=sm.length?Math.round((sm.filter(x=>!x.done).length/sm.length)*100):0;
   let h=`<div class="stat-grid">
     <div class="scard"><div class="sval" style="color:var(--coral)">${done}</div><div class="slbl">задач выполнено</div></div>
     <div class="scard"><div class="sval" style="color:var(--teal)">${fm?fs:'0м'}</div><div class="slbl">в фокусе сегодня</div></div>
