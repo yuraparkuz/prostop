@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ProStop">
+  <meta name="theme-color" content="#E8502A">
+  <meta name="description" content="Приложение для борьбы с прокрастинацией. Метод лягушки, сыра и помидора.">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <title>ProStop — перестань откладывать</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    :root{
+      --coral:#E8502A;--coral-l:#FFE8E1;--coral-d:#9B2C0E;
+      --teal:#10B981;--teal-l:#D1FAE5;--teal-d:#065F46;
+      --amber:#F59E0B;--amber-l:#FEF3C7;--amber-d:#78350F;
+      --purple:#7C3AED;--purple-l:#EDE9FE;--purple-d:#4C1D95;
+      --bg:#F5F3EF;--card:#FFFFFF;
+      --text:#1C1917;--text2:#78716C;--text3:#A8A29E;
+      --border:rgba(0,0,0,0.08);
+      --r:20px;--rs:12px;
+    }
+    body{font-family:'Nunito',sans-serif;background:#E8E4DC;color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
+    .phone{width:390px;height:844px;background:var(--bg);border-radius:50px;overflow:hidden;position:relative;box-shadow:0 40px 80px rgba(0,0,0,0.25),0 0 0 10px #1a1a1a,0 0 0 13px #333;}
+
+    /* Screens */
+    .scr{position:absolute;inset:0;display:flex;flex-direction:column;opacity:0;pointer-events:none;transform:translateX(30px);transition:opacity .22s ease,transform .22s ease;}
+    .scr.on{opacity:1;pointer-events:all;transform:translateX(0);}
+    .scr.out{opacity:0;transform:translateX(-30px);}
+
+    /* Status bar */
+    .sb{display:flex;justify-content:space-between;align-items:center;padding:14px 24px 0;font-size:12px;font-weight:700;color:var(--text);flex-shrink:0;}
+    .sb-time{font-size:13px;font-weight:900;}
+
+    /* Bottom nav */
+    .bnav{display:flex;background:var(--card);border-top:1px solid var(--border);padding:8px 0 20px;flex-shrink:0;}
+    .ni{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:6px 0;position:relative;}
+    .ni-ico{font-size:22px;transition:transform .2s;}
+    .ni-lbl{font-size:10px;font-weight:700;color:var(--text3);transition:color .2s;}
+    .ni.active .ni-lbl{color:var(--coral);}
+    .ni.active .ni-ico{transform:scale(1.15);}
+
+    /* Content scroll */
+    .cnt{flex:1;overflow-y:auto;padding:0 20px 20px;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+    .cnt::-webkit-scrollbar{display:none;}
+
+    /* Typography */
+    .sec-lbl{font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--text3);margin:18px 0 10px;}
+    .title-lg{font-size:26px;font-weight:900;line-height:1.2;}
+    .title-md{font-size:22px;font-weight:900;}
+    .sub{font-size:13px;font-weight:700;color:var(--text3);margin-top:2px;}
+
+    /* Buttons */
+    .btn{width:100%;padding:16px;border-radius:var(--r);border:none;font-family:'Nunito',sans-serif;font-size:16px;font-weight:800;cursor:pointer;transition:transform .15s,opacity .2s;}
+    .btn:active{transform:scale(.97);}
+    .btn-p{background:var(--coral);color:#fff;}
+    .btn-p:hover{background:#D03D1E;}
+    .btn-t{background:var(--teal);color:#fff;}
+    .btn-ghost{background:none;border:none;font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;color:var(--text3);cursor:pointer;padding:8px;text-decoration:underline;}
+    .btn-white{background:#fff;border:none;border-radius:var(--r);padding:16px 32px;font-family:'Nunito',sans-serif;font-size:16px;font-weight:900;cursor:pointer;width:100%;color:var(--teal);transition:transform .15s;}
+    .btn-white:active{transform:scale(.97);}
+
+    /* Cards */
+    .card{background:var(--card);border-radius:var(--r);padding:16px;border:1px solid var(--border);}
+
+    /* Progress dots */
+    .pdots{display:flex;justify-content:center;gap:6px;padding:16px 0;flex-shrink:0;}
+    .pdot{width:6px;height:6px;border-radius:3px;background:var(--border);transition:all .3s;}
+    .pdot.cur{width:20px;background:var(--coral);}
+
+    /* ===== ONBOARDING ===== */
+    .ob-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px 28px;text-align:center;}
+    .ob-ico{font-size:80px;margin-bottom:20px;animation:bounce 2s ease-in-out infinite;}
+    @keyframes bounce{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+    .ob-h{font-size:26px;font-weight:900;margin-bottom:12px;}
+    .ob-p{font-size:15px;color:var(--text2);line-height:1.65;font-weight:600;margin-bottom:28px;}
+    .bubble{background:var(--card);border-radius:16px;border-bottom-left-radius:4px;padding:12px 16px;font-size:14px;font-weight:700;text-align:left;border:1px solid var(--border);opacity:0;transform:translateX(-20px);animation:slin .4s forwards;}
+    .bubble:nth-child(1){animation-delay:.1s;}
+    .bubble:nth-child(2){animation-delay:.3s;}
+    .bubble:nth-child(3){animation-delay:.5s;}
+    .bubble:nth-child(4){animation-delay:.7s;}
+    @keyframes slin{to{opacity:1;transform:translateX(0);}}
+    .blist{display:flex;flex-direction:column;gap:8px;width:100%;margin-bottom:20px;}
+    .mopt{display:flex;align-items:center;gap:14px;padding:14px 16px;background:var(--card);border-radius:var(--rs);border:2px solid var(--border);cursor:pointer;transition:all .2s;text-align:left;margin-bottom:10px;}
+    .mopt.sel{border-color:var(--coral);background:var(--coral-l);}
+    .mopt .mico{font-size:32px;flex-shrink:0;}
+    .mopt h3{font-size:15px;font-weight:800;margin-bottom:2px;}
+    .mopt p{font-size:12px;color:var(--text2);font-weight:600;}
+    .big-inp{width:100%;padding:18px;background:var(--card);border:2px solid var(--border);border-radius:var(--r);font-family:'Nunito',sans-serif;font-size:20px;font-weight:800;text-align:center;color:var(--text);outline:none;margin-bottom:12px;transition:border-color .2s;}
+    .big-inp:focus{border-color:var(--coral);}
+    .big-inp::placeholder{color:var(--text3);font-weight:600;font-size:16px;}
+    .conf-row{display:flex;gap:10px;margin-bottom:20px;font-size:36px;animation:bounce 1.5s ease-in-out infinite;}
+
+    /* ===== HOME ===== */
+    .home-hdr{padding:8px 20px 0;flex-shrink:0;}
+    .frog-card{background:var(--coral);border-radius:var(--r);padding:20px;color:#fff;position:relative;overflow:hidden;margin-bottom:6px;cursor:pointer;transition:transform .15s;}
+    .frog-card:active{transform:scale(.98);}
+    .frog-card::before{content:'';position:absolute;right:-20px;top:-20px;width:120px;height:120px;background:rgba(255,255,255,.1);border-radius:50%;}
+    .fc-lbl{font-size:11px;font-weight:800;opacity:.8;letter-spacing:.6px;text-transform:uppercase;margin-bottom:6px;}
+    .fc-name{font-size:18px;font-weight:800;margin-bottom:14px;line-height:1.3;padding-right:50px;}
+    .fc-ico{position:absolute;right:20px;top:16px;font-size:40px;}
+    .fc-btn{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.2);border:none;border-radius:10px;padding:8px 14px;color:#fff;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer;}
+    .task-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);border-radius:var(--rs);margin-bottom:8px;border:1px solid var(--border);cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+    .task-item.done{opacity:.5;}
+    .task-item.done .tn{text-decoration:line-through;}
+    .tdot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+    .tn{font-size:14px;font-weight:700;flex:1;}
+    .tdur{font-size:12px;color:var(--text3);font-weight:600;}
+    .tchk{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .2s;}
+    .task-item.done .tchk{background:var(--teal);border-color:var(--teal);}
+    .task-item.done .tchk::after{content:'✓';color:#fff;font-size:12px;font-weight:800;}
+    .fab{position:absolute;bottom:90px;right:20px;width:56px;height:56px;background:var(--coral);border-radius:50%;border:none;color:#fff;font-size:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(232,80,42,.45);transition:transform .15s;z-index:10;}
+    .fab:active{transform:scale(.92);}
+    .mshorts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px;}
+    .ms{padding:14px;border-radius:var(--rs);cursor:pointer;border:none;font-family:'Nunito',sans-serif;text-align:left;transition:transform .15s;}
+    .ms:active{transform:scale(.96);}
+    .ms-ico{font-size:26px;margin-bottom:6px;}
+    .ms-name{font-size:13px;font-weight:800;}
+    .ms-desc{font-size:11px;font-weight:600;opacity:.75;margin-top:2px;}
+    .empty-s{text-align:center;padding:30px 10px;}
+    .empty-s .big-ico{font-size:56px;margin-bottom:12px;}
+    .empty-s p{font-size:15px;font-weight:700;color:var(--text2);}
+
+    /* ===== ADD TASK MODAL ===== */
+    .modal-ov{position:absolute;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .3s;z-index:100;}
+    .modal-ov.open{opacity:1;pointer-events:all;}
+    .modal-sh{background:var(--bg);border-radius:28px 28px 0 0;padding:20px 20px 40px;width:100%;transform:translateY(100%);transition:transform .35s cubic-bezier(.34,1.56,.64,1);}
+    .modal-ov.open .modal-sh{transform:translateY(0);}
+    .modal-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px;}
+    .form-lbl{font-size:12px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;display:block;}
+    .form-inp{width:100%;padding:14px 16px;background:var(--card);border:2px solid var(--border);border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:15px;font-weight:700;color:var(--text);outline:none;transition:border-color .2s;}
+    .form-inp:focus{border-color:var(--coral);}
+    .dur-wrap{display:flex;gap:8px;flex-wrap:wrap;}
+    .dur-btn{padding:8px 14px;border-radius:20px;border:2px solid var(--border);background:var(--card);font-family:'Nunito',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;}
+    .dur-btn.sel{background:var(--coral);border-color:var(--coral);color:#fff;}
+    .ch-sug{background:var(--teal-l);border-radius:var(--rs);padding:12px 14px;display:flex;align-items:center;gap:10px;margin-top:8px;}
+    .ch-sug p{font-size:13px;color:var(--teal-d);font-weight:700;}
+    .clr-row{display:flex;gap:10px;}
+    .clr-sw{width:28px;height:28px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:transform .15s,border-color .15s;}
+    .clr-sw.sel{border-color:var(--text);transform:scale(1.15);}
+
+    /* ===== TIMER ===== */
+    .timer-hdr{background:var(--teal);padding:14px 20px 28px;flex-shrink:0;}
+    .timer-hdr .sb{color:rgba(255,255,255,.8);padding:0;margin-bottom:12px;}
+    .t-method{font-size:11px;font-weight:800;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;}
+    .t-task{font-size:18px;font-weight:800;color:#fff;}
+    .timer-body{flex:1;display:flex;flex-direction:column;align-items:center;padding:20px 20px 0;overflow-y:auto;}
+    .ses-dots{display:flex;gap:8px;margin-bottom:20px;}
+    .sdot{width:12px;height:12px;border-radius:50%;background:var(--bg);border:2px solid var(--border);transition:all .3s;}
+    .sdot.dn{background:var(--coral);border-color:var(--coral);}
+    .sdot.cur{background:var(--coral);border-color:var(--coral);animation:pulse 1s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.3);}}
+    .t-prog{width:100%;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;margin-bottom:16px;}
+    .t-prog-fill{height:100%;background:var(--coral);border-radius:4px;transition:width 1s linear;}
+    .t-display{font-size:72px;font-weight:900;letter-spacing:-3px;margin-bottom:8px;}
+    .t-phase{font-size:14px;font-weight:700;color:var(--text2);margin-bottom:24px;}
+    .t-controls{display:flex;align-items:center;gap:16px;margin-bottom:20px;}
+    .t-btn-sec{width:52px;height:52px;border-radius:50%;background:var(--card);border:1px solid var(--border);font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:transform .15s;}
+    .t-btn-sec:active{transform:scale(.92);}
+    .t-btn-play{width:72px;height:72px;border-radius:50%;background:var(--coral);border:none;color:#fff;font-size:28px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 20px rgba(232,80,42,.4);transition:transform .15s;}
+    .t-btn-play:active{transform:scale(.92);}
+    .t-tip{background:var(--teal-l);border-radius:var(--rs);padding:12px 14px;font-size:13px;color:var(--teal-d);font-weight:700;line-height:1.5;width:100%;}
+    .t-task-sel{width:100%;margin-bottom:12px;}
+    .t-task-sel select{width:100%;padding:12px 14px;background:var(--card);border:2px solid var(--border);border-radius:var(--rs);font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;color:var(--text);outline:none;}
+
+    /* Timer complete overlay */
+    .cov{position:absolute;inset:0;background:var(--teal);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px;opacity:0;pointer-events:none;transition:opacity .3s;z-index:50;}
+    .cov.show{opacity:1;pointer-events:all;}
+    .cov-ico{font-size:80px;margin-bottom:16px;animation:bounce 1.5s ease-in-out infinite;}
+    .cov-h{font-size:26px;font-weight:900;color:#fff;margin-bottom:10px;}
+    .cov-p{font-size:15px;font-weight:700;color:rgba(255,255,255,.8);margin-bottom:28px;line-height:1.5;}
+
+    /* ===== CHEESE ===== */
+    .cth{background:var(--coral);border-radius:var(--r);padding:16px;margin-bottom:12px;color:#fff;}
+    .cth-lbl{font-size:11px;font-weight:800;opacity:.8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+    .cth-n{font-size:17px;font-weight:800;}
+    .cth-meta{display:flex;gap:8px;margin-top:10px;}
+    .cth-badge{background:rgba(255,255,255,.2);padding:4px 10px;border-radius:8px;font-size:12px;font-weight:700;}
+    .part-item{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border-radius:var(--rs);margin-bottom:8px;border:1px solid var(--border);}
+    .part-item.done{opacity:.5;}
+    .part-item.done .pname{text-decoration:line-through;}
+    .pnum{font-size:13px;font-weight:800;color:var(--text3);width:20px;}
+    .pname{font-size:14px;font-weight:700;flex:1;}
+    .pdur{font-size:12px;font-weight:600;color:var(--text3);}
+    .pstart{background:none;border:none;font-size:18px;cursor:pointer;padding:2px;flex-shrink:0;}
+    .pchk{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;}
+    .part-item.done .pchk{background:var(--teal);border-color:var(--teal);}
+    .part-item.done .pchk::after{content:'✓';color:#fff;font-size:11px;font-weight:800;}
+    .add-part{display:flex;align-items:center;gap:10px;padding:12px 14px;background:none;border-radius:var(--rs);border:2px dashed var(--border);margin-bottom:8px;cursor:pointer;font-family:'Nunito',sans-serif;font-size:14px;font-weight:700;color:var(--text3);width:100%;}
+    .csel-row{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border-radius:var(--rs);margin-bottom:8px;border:1px solid var(--border);cursor:pointer;transition:background .15s;}
+    .csel-row:hover{background:var(--bg);}
+    .prog-row{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card);border-radius:var(--rs);margin-bottom:12px;border:1px solid var(--border);}
+    .prog-pct{font-size:22px;font-weight:900;color:var(--teal);}
+    .prog-bar{flex:1;background:var(--bg);height:8px;border-radius:4px;overflow:hidden;}
+    .prog-fill{height:100%;background:var(--teal);border-radius:4px;transition:width .5s;}
+
+    /* ===== STATS ===== */
+    .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px;}
+    .scard{background:var(--card);border-radius:var(--rs);padding:14px;border:1px solid var(--border);}
+    .sval{font-size:28px;font-weight:900;}
+    .slbl{font-size:12px;font-weight:700;color:var(--text3);margin-top:2px;}
+    .bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+    .br-lbl{font-size:12px;font-weight:700;color:var(--text2);width:90px;flex-shrink:0;}
+    .br-bg{flex:1;height:10px;background:var(--bg);border-radius:5px;overflow:hidden;}
+    .br-bar{height:100%;border-radius:5px;transition:width .8s cubic-bezier(.34,1.56,.64,1);}
+    .br-pct{font-size:12px;font-weight:800;width:34px;text-align:right;}
+    .insight{background:var(--purple-l);border-radius:var(--rs);padding:14px;}
+    .ins-lbl{font-size:10px;font-weight:800;color:#5B21B6;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;}
+    .ins-txt{font-size:14px;font-weight:700;color:var(--purple-d);line-height:1.5;}
+
+    /* ===== TOAST ===== */
+    .toast{position:absolute;bottom:100px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;white-space:nowrap;opacity:0;transition:all .3s;z-index:200;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+    /* ===== FORM FIELD WRAPPER ===== */
+    .ff{margin-bottom:14px;}
+  </style>
+</head>
+<body>
+<div class="phone" id="app">
+  <div class="toast" id="toast"></div>
+
+  <!-- ===== ONBOARDING 1 ===== -->
+  <div class="scr on" id="s-ob1">
+    <div class="sb"><span class="sb-time" id="t1">9:41</span><span>●●●</span></div>
+    <div class="ob-body">
+      <div class="ob-ico">🐸</div>
+      <div class="ob-h">Привет! Я ProStop</div>
+      <div class="ob-p">Помогу перестать откладывать уроки на «потом». Весело, без нотаций!</div>
+      <button class="btn btn-p" onclick="go('ob2')">Давай попробуем! →</button>
+      <button class="btn-ghost" onclick="go('home')">Пропустить</button>
+    </div>
+    <div class="pdots"><div class="pdot cur"></div><div class="pdot"></div><div class="pdot"></div><div class="pdot"></div><div class="pdot"></div></div>
+  </div>
+
+  <!-- ===== ONBOARDING 2 ===== -->
+  <div class="scr" id="s-ob2">
+    <div class="sb"><span class="sb-time">9:41</span><span>●●●</span></div>
+    <div class="ob-body" style="justify-content:flex-start;padding-top:16px;">
+      <div style="font-size:48px;margin-bottom:12px;">🤔</div>
+      <div class="ob-h" style="font-size:22px;margin-bottom:8px;">Узнаёшь себя?</div>
+      <div class="ob-p" style="margin-bottom:14px;font-size:14px;">Вот что мы говорим, когда не хотим делать домашку:</div>
+      <div class="blist">
+        <div class="bubble">💬 «Начну с понедельника. Точно!»</div>
+        <div class="bubble">💬 «У меня ещё полно времени…»</div>
+        <div class="bubble">💬 «Посмотрю одно видео и сразу сяду»</div>
+        <div class="bubble">💬 «Лучше сделать идеально, но позже»</div>
+      </div>
+      <button class="btn btn-p" onclick="go('ob3')">Да, это 100% про меня! 😅</button>
+    </div>
+    <div class="pdots"><div class="pdot"></div><div class="pdot cur"></div><div class="pdot"></div><div class="pdot"></div><div class="pdot"></div></div>
+  </div>
+
+  <!-- ===== ONBOARDING 3 ===== -->
+  <div class="scr" id="s-ob3">
+    <div class="sb"><span class="sb-time">9:41</span><span>●●●</span></div>
+    <div style="padding:10px 24px 0;flex-shrink:0;text-align:center;">
+      <div style="font-size:40px;margin-bottom:8px;">💡</div>
+      <div class="title-md" style="margin-bottom:6px;">3 секрета против прокрастинации</div>
+      <div class="sub" style="margin-bottom:4px;">Выбери один — нажми на него!</div>
+    </div>
+    <div class="cnt" style="padding-top:14px;">
+      <div class="mopt" id="mo-frog" onclick="pickMethod('frog')">
+        <span class="mico">🐸</span>
+        <div><h3>Метод лягушки</h3><p>Сначала — самое страшное дело. После него всё легко!</p></div>
+      </div>
+      <div class="mopt" id="mo-cheese" onclick="pickMethod('cheese')">
+        <span class="mico">🧀</span>
+        <div><h3>Швейцарский сыр</h3><p>Большое задание — это много маленьких кусочков!</p></div>
+      </div>
+      <div class="mopt" id="mo-pomodoro" onclick="pickMethod('pomodoro')">
+        <span class="mico">🍅</span>
+        <div><h3>Метод помидора</h3><p>25 мин работы → 5 мин отдыха. Повтори 4 раза!</p></div>
+      </div>
+      <button class="btn btn-p" id="ob3btn" onclick="go('ob4')" style="opacity:.3;pointer-events:none;">Понятно, дальше!</button>
+    </div>
+    <div class="pdots" style="flex-shrink:0;"><div class="pdot"></div><div class="pdot"></div><div class="pdot cur"></div><div class="pdot"></div><div class="pdot"></div></div>
+  </div>
+
+  <!-- ===== ONBOARDING 4 ===== -->
+  <div class="scr" id="s-ob4">
+    <div class="sb"><span class="sb-time">9:41</span><span>●●●</span></div>
+    <div class="ob-body">
+      <div style="font-size:64px;margin-bottom:18px;">✏️</div>
+      <div class="ob-h">Как тебя зовут?</div>
+      <div class="ob-p">Буду обращаться по имени — так приятнее!</div>
+      <input class="big-inp" id="name-inp" type="text" placeholder="Введи своё имя..." oninput="checkName()" maxlength="20" autocomplete="off">
+      <button class="btn btn-p" id="ob4btn" onclick="finishOb()" style="opacity:.3;pointer-events:none;">Готово!</button>
+      <button class="btn-ghost" onclick="finishOb()">Пропустить</button>
+    </div>
+    <div class="pdots"><div class="pdot"></div><div class="pdot"></div><div class="pdot"></div><div class="pdot cur"></div><div class="pdot"></div></div>
+  </div>
+
+  <!-- ===== ONBOARDING 5 ===== -->
+  <div class="scr" id="s-ob5">
+    <div class="sb"><span class="sb-time">9:41</span><span>●●●</span></div>
+    <div class="ob-body">
+      <div class="conf-row">🎉 ⭐ 🔥 🏆 ✨</div>
+      <div class="ob-h" id="ob5h">Ты готов!</div>
+      <div class="ob-p">Добавь первое домашнее задание — и сразу увидишь как это работает!</div>
+      <div style="background:var(--teal-l);border-radius:var(--rs);padding:14px;margin-bottom:24px;text-align:left;width:100%;">
+        <div style="font-size:11px;font-weight:800;color:var(--teal-d);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Совет</div>
+        <div style="font-size:13px;font-weight:700;color:var(--teal-d);line-height:1.5;">Задания дольше 1 часа лучше разбить через «Сыр» — страх исчезает!</div>
+      </div>
+      <button class="btn btn-t" onclick="go('home')">Начинаем! 🚀</button>
+    </div>
+    <div class="pdots"><div class="pdot"></div><div class="pdot"></div><div class="pdot"></div><div class="pdot"></div><div class="pdot cur"></div></div>
+  </div>
+
+  <!-- ===== HOME ===== -->
+  <div class="scr" id="s-home">
+    <div class="sb"><span class="sb-time" id="t2">9:41</span><span>●●●</span></div>
+    <div class="home-hdr">
+      <div class="sub" id="home-date">Четверг, 19 марта</div>
+      <div class="title-lg" id="home-title">ProStop 🐸</div>
+    </div>
+    <div class="cnt" id="home-cnt"></div>
+    <button class="fab" onclick="openAdd()">+</button>
+    <div class="bnav">
+      <div class="ni active" onclick="go('home')"><span class="ni-ico">🏠</span><span class="ni-lbl" style="color:var(--coral)">Главная</span></div>
+      <div class="ni" onclick="go('timer')"><span class="ni-ico">⏱</span><span class="ni-lbl">Таймер</span></div>
+      <div class="ni" onclick="go('cheese')"><span class="ni-ico">🧀</span><span class="ni-lbl">Разбить</span></div>
+      <div class="ni" onclick="go('stats')"><span class="ni-ico">📊</span><span class="ni-lbl">Статистика</span></div>
+    </div>
+  </div>
+
+  <!-- ===== TIMER ===== -->
+  <div class="scr" id="s-timer">
+    <div class="timer-hdr">
+      <div class="sb" style="color:rgba(255,255,255,.8);padding:0;margin-bottom:10px;"><span class="sb-time">9:41</span><span>●●●</span></div>
+      <div class="t-method">🍅 Метод помидора</div>
+      <div class="t-task" id="t-task">Нажми ▶ чтобы начать</div>
+    </div>
+    <div class="timer-body">
+      <div class="t-task-sel">
+        <select id="task-select" onchange="changeTimerTask(this.value)">
+          <option value="">— Выбери задачу —</option>
+        </select>
+      </div>
+      <div class="ses-dots" id="ses-dots"></div>
+      <div class="t-prog"><div class="t-prog-fill" id="t-prog-fill" style="width:100%"></div></div>
+      <div class="t-display" id="t-display">25:00</div>
+      <div class="t-phase" id="t-phase">🎯 Рабочее время</div>
+      <div class="t-controls">
+        <button class="t-btn-sec" onclick="resetTimer()" title="Сбросить">↺</button>
+        <button class="t-btn-play" id="t-play" onclick="toggleTimer()">▶</button>
+        <button class="t-btn-sec" onclick="skipTimer()" title="Пропустить">⏭</button>
+      </div>
+      <div class="t-tip" id="t-tip">Убери телефон! Только ты и задача — 25 минут.</div>
+    </div>
+    <div class="cov" id="cov">
+      <div class="cov-ico">🎉</div>
+      <div class="cov-h" id="cov-h">Сессия завершена!</div>
+      <div class="cov-p" id="cov-p">Отлично! Заслуженный перерыв — 5 минут.</div>
+      <button class="btn-white" onclick="startBreak()">Начать перерыв</button>
+      <button class="btn-ghost" style="color:rgba(255,255,255,.7);margin-top:8px;" onclick="closeCov()">Пропустить перерыв</button>
+    </div>
+    <div class="bnav">
+      <div class="ni" onclick="go('home')"><span class="ni-ico">🏠</span><span class="ni-lbl">Главная</span></div>
+      <div class="ni active" onclick="go('timer')"><span class="ni-ico">⏱</span><span class="ni-lbl" style="color:var(--coral)">Таймер</span></div>
+      <div class="ni" onclick="go('cheese')"><span class="ni-ico">🧀</span><span class="ni-lbl">Разбить</span></div>
+      <div class="ni" onclick="go('stats')"><span class="ni-ico">📊</span><span class="ni-lbl">Статистика</span></div>
+    </div>
+  </div>
+
+  <!-- ===== CHEESE ===== -->
+  <div class="scr" id="s-cheese">
+    <div class="sb"><span class="sb-time">9:41</span><span>●●●</span></div>
+    <div style="padding:4px 20px 8px;flex-shrink:0;">
+      <div class="title-md">Разбить задачу 🧀</div>
+      <div class="sub">Метод швейцарского сыра</div>
+    </div>
+    <div class="cnt" id="cheese-cnt"></div>
+    <div class="bnav">
+      <div class="ni" onclick="go('home')"><span class="ni-ico">🏠</span><span class="ni-lbl">Главная</span></div>
+      <div class="ni" onclick="go('timer')"><span class="ni-ico">⏱</span><span class="ni-lbl">Таймер</span></div>
+      <div class="ni active" onclick="go('cheese')"><span class="ni-ico">🧀</span><span class="ni-lbl" style="color:var(--coral)">Разбить</span></div>
+      <div class="ni" onclick="go('stats')"><span class="ni-ico">📊</span><span class="ni-lbl">Статистика</span></div>
+    </div>
+  </div>
+
+  <!-- ===== STATS ===== -->
+  <div class="scr" id="s-stats">
+    <div class="sb"><span class="sb-time">9:41</span><span>●●●</span></div>
+    <div style="padding:4px 20px 8px;flex-shrink:0;">
+      <div class="title-md">Моя статистика 📊</div>
+      <div class="sub" id="stats-date">За сегодня</div>
+    </div>
+    <div class="cnt" id="stats-cnt"></div>
+    <div class="bnav">
+      <div class="ni" onclick="go('home')"><span class="ni-ico">🏠</span><span class="ni-lbl">Главная</span></div>
+      <div class="ni" onclick="go('timer')"><span class="ni-ico">⏱</span><span class="ni-lbl">Таймер</span></div>
+      <div class="ni" onclick="go('cheese')"><span class="ni-ico">🧀</span><span class="ni-lbl">Разбить</span></div>
+      <div class="ni active" onclick="go('stats')"><span class="ni-ico">📊</span><span class="ni-lbl" style="color:var(--coral)">Статистика</span></div>
+    </div>
+  </div>
+
+  <!-- ===== ADD TASK MODAL ===== -->
+  <div class="modal-ov" id="modal" onclick="modalOvClick(event)">
+    <div class="modal-sh">
+      <div class="modal-handle"></div>
+      <div style="font-size:20px;font-weight:900;margin-bottom:16px;">Добавить задачу ✏️</div>
+      <div class="ff">
+        <label class="form-lbl">Название задачи</label>
+        <input class="form-inp" id="tn-inp" type="text" placeholder="Например: Реферат по истории" oninput="checkForm()" autocomplete="off">
+      </div>
+      <div class="ff">
+        <label class="form-lbl">Время выполнения</label>
+        <div class="dur-wrap">
+          <button class="dur-btn" onclick="pickDur(20,this)" data-d="20">20 мин</button>
+          <button class="dur-btn" onclick="pickDur(30,this)" data-d="30">30 мин</button>
+          <button class="dur-btn" onclick="pickDur(45,this)" data-d="45">45 мин</button>
+          <button class="dur-btn" onclick="pickDur(60,this)" data-d="60">1 час</button>
+          <button class="dur-btn" onclick="pickDur(90,this)" data-d="90">1.5 ч</button>
+          <button class="dur-btn" onclick="pickDur(120,this)" data-d="120">2+ ч</button>
+        </div>
+        <div class="ch-sug" id="ch-sug" style="display:none;"><span style="font-size:22px;">🧀</span><p>Большая задача! Советуем разбить на кусочки через «Сыр»</p></div>
+      </div>
+      <div class="ff">
+        <label class="form-lbl">Цвет</label>
+        <div class="clr-row" id="clr-row">
+          <div class="clr-sw sel" data-c="#E8502A" style="background:#E8502A" onclick="pickClr('#E8502A',this)"></div>
+          <div class="clr-sw" data-c="#10B981" style="background:#10B981" onclick="pickClr('#10B981',this)"></div>
+          <div class="clr-sw" data-c="#F59E0B" style="background:#F59E0B" onclick="pickClr('#F59E0B',this)"></div>
+          <div class="clr-sw" data-c="#7C3AED" style="background:#7C3AED" onclick="pickClr('#7C3AED',this)"></div>
+          <div class="clr-sw" data-c="#EC4899" style="background:#EC4899" onclick="pickClr('#EC4899',this)"></div>
+        </div>
+      </div>
+      <button class="btn btn-p" id="add-btn" onclick="saveTask()" style="opacity:.3;pointer-events:none;margin-top:4px;">Добавить задачу</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== STATE =====================
+let S = {
+  name:'', method:null,
+  tasks:[],
+  selTask:null,   // timer task id
+  cheeseTask:null, // cheese task id
+  timer:{running:false,secs:25*60,total:25*60,phase:'work',session:1,done:0},
+  stats:{streak:5,focusMins:0,doneToday:0},
+  newDur:null, newClr:'#E8502A'
+};
+let TI = null;
+let cur = 'ob1';
+
+// ===================== PERSIST =====================
+function load(){
+  try{
+    const d=localStorage.getItem('ps2');
+    if(d){const p=JSON.parse(d);S={...S,...p};S.timer={...S.timer,running:false};}
+  }catch(e){}
+}
+function save(){
+  try{localStorage.setItem('ps2',JSON.stringify(S));}catch(e){}
+}
+
+// ===================== CLOCK =====================
+function tick(){
+  const d=new Date();
+  const h=String(d.getHours()).padStart(2,'0');
+  const m=String(d.getMinutes()).padStart(2,'0');
+  const t=h+':'+m;
+  document.querySelectorAll('.sb-time').forEach(el=>el.textContent=t);
+}
+setInterval(tick,30000); tick();
+
+// ===================== NAVIGATION =====================
+function go(id){
+  const from=document.getElementById('s-'+cur);
+  const to=document.getElementById('s-'+id);
+  if(!to||cur===id)return;
+  from.classList.add('out');
+  setTimeout(()=>{from.classList.remove('on','out');},220);
+  to.classList.add('on');
+  cur=id;
+  if(id==='home'){renderHome();}
+  if(id==='cheese'){renderCheese();}
+  if(id==='stats'){renderStats();}
+  if(id==='timer'){renderTimer();}
+}
+
+// ===================== ONBOARDING =====================
+function pickMethod(m){
+  S.method=m;
+  document.querySelectorAll('.mopt').forEach(el=>el.classList.remove('sel'));
+  document.getElementById('mo-'+m).classList.add('sel');
+  const b=document.getElementById('ob3btn');
+  b.style.opacity='1';b.style.pointerEvents='auto';
+}
+function checkName(){
+  const v=document.getElementById('name-inp').value.trim();
+  const b=document.getElementById('ob4btn');
+  b.style.opacity=v?'1':'0.3';
+  b.style.pointerEvents=v?'auto':'none';
+}
+function finishOb(){
+  const n=document.getElementById('name-inp').value.trim();
+  if(n)S.name=n;
+  document.getElementById('ob5h').textContent=n?'Отлично, '+n+'! 🎉':'Всё готово! 🎉';
+  save(); go('ob5');
+}
+
+// ===================== HOME =====================
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function fmtDur(m){if(m<60)return m+' мин';const h=Math.floor(m/60);const r=m%60;return r?h+'ч '+r+'м':h+' ч';}
+function dateStr(){
+  const days=['Воскресенье','Понедельник','Вторник','Среда','Четверг','Пятница','Суббота'];
+  const mons=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+  const d=new Date();
+  return days[d.getDay()]+', '+d.getDate()+' '+mons[d.getMonth()];
+}
+function renderHome(){
+  document.getElementById('home-date').textContent=dateStr();
+  document.getElementById('home-title').textContent=S.name?'Привет, '+S.name+'! 👋':'ProStop 🐸';
+  const t=S.tasks;
+  let h='';
+  const unc=t.filter(x=>!x.done);
+  if(unc.length){
+    const frog=unc.reduce((a,b)=>a.minutes>b.minutes?a:b);
+    h+=`<div class="frog-card" onclick="startTaskTimer('${frog.id}')">
+      <div class="fc-ico">🐸</div>
+      <div class="fc-lbl">Твоя лягушка на сегодня</div>
+      <div class="fc-name">${esc(frog.name)}</div>
+      <button class="fc-btn">Съесть лягушку ▶</button>
+    </div>`;
+  }else if(t.length){
+    h+=`<div class="frog-card" style="background:var(--teal);">
+      <div class="fc-ico">🎉</div>
+      <div class="fc-lbl">Всё выполнено!</div>
+      <div class="fc-name">Молодец, все задачи сделаны!</div>
+    </div>`;
+  }
+  if(t.length){
+    h+='<div class="sec-lbl">Задачи на сегодня</div>';
+    t.forEach(task=>{
+      h+=`<div class="task-item${task.done?' done':''}" onclick="toggleDone('${task.id}')">
+        <div class="tdot" style="background:${task.color}"></div>
+        <span class="tn">${esc(task.name)}</span>
+        <span class="tdur">${fmtDur(task.minutes)}</span>
+        <div class="tchk"></div>
+      </div>`;
+    });
+  }else{
+    h+=`<div class="empty-s"><div class="big-ico">📝</div><p>Пока нет задач.<br>Нажми + чтобы добавить!</p></div>`;
+  }
+  h+=`<div class="sec-lbl">Методы</div>
+  <div class="mshorts">
+    <button class="ms" style="background:var(--coral-l);" onclick="startTaskTimer(null)">
+      <div class="ms-ico">🐸</div>
+      <div class="ms-name" style="color:var(--coral-d)">Лягушка</div>
+      <div class="ms-desc" style="color:var(--coral)">Самое страшное — первым!</div>
+    </button>
+    <button class="ms" style="background:var(--teal-l);" onclick="go('cheese')">
+      <div class="ms-ico">🧀</div>
+      <div class="ms-name" style="color:var(--teal-d)">Сыр</div>
+      <div class="ms-desc" style="color:var(--teal)">Разбей на кусочки</div>
+    </button>
+    <button class="ms" style="background:var(--amber-l);" onclick="go('timer')">
+      <div class="ms-ico">🍅</div>
+      <div class="ms-name" style="color:var(--amber-d)">Помидор</div>
+      <div class="ms-desc" style="color:var(--amber)">25 мин фокуса</div>
+    </button>
+    <button class="ms" style="background:var(--purple-l);" onclick="go('stats')">
+      <div class="ms-ico">📊</div>
+      <div class="ms-name" style="color:var(--purple-d)">Статистика</div>
+      <div class="ms-desc" style="color:var(--purple)">Твои успехи</div>
+    </button>
+  </div><div style="height:20px;"></div>`;
+  document.getElementById('home-cnt').innerHTML=h;
+}
+function toggleDone(id){
+  const t=S.tasks.find(x=>x.id===id);
+  if(!t)return;
+  t.done=!t.done;
+  if(t.done){S.stats.doneToday++;showToast('✅ Задача выполнена!');}
+  else{showToast('↩ Задача снова активна');}
+  save();renderHome();
+}
+
+// ===================== ADD TASK =====================
+function openAdd(){
+  S.newDur=null;S.newClr='#E8502A';
+  document.getElementById('tn-inp').value='';
+  document.querySelectorAll('.dur-btn').forEach(b=>b.classList.remove('sel'));
+  document.querySelectorAll('.clr-sw').forEach(s=>s.classList.toggle('sel',s.dataset.c==='#E8502A'));
+  document.getElementById('ch-sug').style.display='none';
+  const ab=document.getElementById('add-btn');ab.style.opacity='.3';ab.style.pointerEvents='none';
+  document.getElementById('modal').classList.add('open');
+  setTimeout(()=>document.getElementById('tn-inp').focus(),400);
+}
+function modalOvClick(e){if(e.target===document.getElementById('modal'))closeModal();}
+function closeModal(){document.getElementById('modal').classList.remove('open');}
+function pickDur(m,el){
+  S.newDur=m;
+  document.querySelectorAll('.dur-btn').forEach(b=>b.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('ch-sug').style.display=m>=60?'flex':'none';
+  checkForm();
+}
+function pickClr(c,el){
+  S.newClr=c;
+  document.querySelectorAll('.clr-sw').forEach(s=>s.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function checkForm(){
+  const v=document.getElementById('tn-inp').value.trim();
+  const ab=document.getElementById('add-btn');
+  const ok=v&&S.newDur;
+  ab.style.opacity=ok?'1':'0.3';
+  ab.style.pointerEvents=ok?'auto':'none';
+}
+function autoSplit(name,mins){
+  const cs=25,chunks=Math.ceil(mins/cs);
+  const tpls=['Разобраться в задании и найти материалы','Написать план или набросок','Основная работа — часть 1','Основная работа — часть 2','Основная работа — часть 3','Проверить и оформить','Финальная проверка'];
+  const parts=[];
+  for(let i=0;i<chunks;i++){
+    parts.push({id:'p'+Date.now()+'_'+i,name:tpls[i]||'Часть '+(i+1),minutes:Math.min(mins-i*cs,cs),done:false});
+  }
+  return parts;
+}
+function saveTask(){
+  const name=document.getElementById('tn-inp').value.trim();
+  if(!name||!S.newDur)return;
+  const task={id:'t'+Date.now(),name,minutes:S.newDur,color:S.newClr,done:false,parts:S.newDur>=60?autoSplit(name,S.newDur):[]};
+  S.tasks.push(task);save();closeModal();renderHome();showToast('✅ Задача добавлена!');
+  if(S.newDur>=60){setTimeout(()=>{S.cheeseTask=task.id;go('cheese');},900);}
+}
+
+// ===================== TIMER =====================
+function renderTimer(){
+  const t=S.tasks.find(x=>x.id===S.selTask);
+  document.getElementById('t-task').textContent=t?t.name:'Выбери задачу ниже';
+  // fill select
+  const sel=document.getElementById('task-select');
+  sel.innerHTML='<option value="">— Выбери задачу —</option>';
+  S.tasks.filter(x=>!x.done).forEach(t=>{
+    const opt=document.createElement('option');
+    opt.value=t.id;opt.textContent=t.name+' ('+fmtDur(t.minutes)+')';
+    if(t.id===S.selTask)opt.selected=true;
+    sel.appendChild(opt);
+  });
+  renderSessions();updateDisp();updatePhase();updateProg();
+}
+function changeTimerTask(id){
+  S.selTask=id||null;
+  const t=S.tasks.find(x=>x.id===S.selTask);
+  document.getElementById('t-task').textContent=t?t.name:'Выбери задачу ниже';
+}
+function renderSessions(){
+  let h='';
+  for(let i=1;i<=4;i++){
+    let c='';
+    if(i<S.timer.session)c='dn';
+    else if(i===S.timer.session&&S.timer.running)c='cur';
+    h+=`<div class="sdot ${c}"></div>`;
+  }
+  document.getElementById('ses-dots').innerHTML=h;
+}
+function updateDisp(){
+  const s=S.timer.secs;
+  document.getElementById('t-display').textContent=String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');
+}
+function updatePhase(){
+  const p=S.timer.phase;
+  const phases={work:'🎯 Рабочее время',break:'☕ Короткий перерыв (5 мин)','long-break':'🛋 Большой перерыв (15 мин)'};
+  document.getElementById('t-phase').textContent=phases[p]||phases.work;
+  const tips={work:'Убери телефон! Только ты и задача — 25 минут.',break:'Встань, потянись, выпей воды. Ты заслужил!','long-break':'Большой перерыв! Погуляй или перекуси.'};
+  document.getElementById('t-tip').textContent=tips[p]||tips.work;
+}
+function updateProg(){
+  const pct=Math.round((S.timer.secs/S.timer.total)*100);
+  document.getElementById('t-prog-fill').style.width=pct+'%';
+}
+function toggleTimer(){
+  if(S.timer.running)pauseT();else startT();
+}
+function startT(){
+  S.timer.running=true;
+  document.getElementById('t-play').textContent='⏸';
+  TI=setInterval(()=>{
+    S.timer.secs--;
+    if(S.timer.secs<=0){sessionEnd();}
+    else{updateDisp();updateProg();}
+    if(S.timer.secs%10===0)save();
+  },1000);
+}
+function pauseT(){
+  S.timer.running=false;
+  document.getElementById('t-play').textContent='▶';
+  clearInterval(TI);save();
+}
+function resetTimer(){
+  pauseT();
+  const dur={work:25*60,break:5*60,'long-break':15*60};
+  S.timer.secs=S.timer.total=dur[S.timer.phase]||25*60;
+  updateDisp();updateProg();
+}
+function skipTimer(){pauseT();sessionEnd();}
+function sessionEnd(){
+  clearInterval(TI);S.timer.running=false;
+  document.getElementById('t-play').textContent='▶';
+  if(S.timer.phase==='work'){
+    S.timer.done++;S.stats.focusMins+=25;
+    const cov=document.getElementById('cov');cov.classList.add('show');
+    if(S.timer.done>=4){
+      document.getElementById('cov-h').textContent='4 помидора! Ты супер! 🏆';
+      document.getElementById('cov-p').textContent='Заслужил большой перерыв — 15 минут!';
+    }else{
+      document.getElementById('cov-h').textContent='Сессия '+S.timer.done+' из 4 завершена! 🎉';
+      document.getElementById('cov-p').textContent='Отлично! Заслуженный перерыв — 5 минут.';
+    }
+  }else{
+    if(S.timer.done>=4){S.timer.done=0;S.timer.session=1;}
+    else S.timer.session++;
+    S.timer.phase='work';S.timer.secs=S.timer.total=25*60;
+    updateDisp();updateProg();updatePhase();renderSessions();showToast('Время работать! 💪');
+  }
+  save();
+}
+function startBreak(){
+  document.getElementById('cov').classList.remove('show');
+  const isLong=S.timer.done>=4;
+  S.timer.phase=isLong?'long-break':'break';
+  S.timer.secs=S.timer.total=isLong?15*60:5*60;
+  if(!isLong)S.timer.session++;
+  updateDisp();updateProg();updatePhase();renderSessions();startT();save();
+}
+function closeCov(){
+  document.getElementById('cov').classList.remove('show');
+  if(S.timer.done>=4){S.timer.done=0;S.timer.session=1;}
+  else S.timer.session++;
+  S.timer.phase='work';S.timer.secs=S.timer.total=25*60;
+  updateDisp();updateProg();updatePhase();renderSessions();save();
+}
+function startTaskTimer(id){
+  if(id)S.selTask=id;
+  go('timer');
+}
+
+// ===================== CHEESE =====================
+function renderCheese(){
+  const cnt=document.getElementById('cheese-cnt');
+  const ct=S.cheeseTask?S.tasks.find(t=>t.id===S.cheeseTask):null;
+  let h='';
+  if(!ct){
+    const unc=S.tasks.filter(t=>!t.done);
+    if(!unc.length){
+      h=`<div class="empty-s"><div class="big-ico">🎉</div><p>Все задачи выполнены! Добавь новые на главной.</p><button class="btn btn-p" style="max-width:220px;margin-top:16px;" onclick="go('home')">На главную</button></div>`;
+    }else{
+      const big=unc.filter(t=>t.minutes>=45);
+      if(big.length){
+        h+=`<div style="background:var(--amber-l);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px;font-size:13px;font-weight:700;color:var(--amber-d);">💡 Лучшие кандидаты для разбивки:</div>`;
+        big.forEach(t=>{h+=chRow(t);});
+        const sm=unc.filter(t=>t.minutes<45);
+        if(sm.length){h+='<div class="sec-lbl">Остальные задачи</div>';sm.forEach(t=>{h+=chRow(t);});}
+      }else{
+        h+='<div class="sec-lbl">Выбери задачу</div>';
+        unc.forEach(t=>{h+=chRow(t);});
+      }
+    }
+  }else{
+    const dc=ct.parts.filter(p=>p.done).length,tot=ct.parts.length;
+    const pct=tot?Math.round((dc/tot)*100):0;
+    h+=`<div class="cth">
+      <div class="cth-lbl">Разбиваем задачу</div>
+      <div class="cth-n">${esc(ct.name)}</div>
+      <div class="cth-meta"><div class="cth-badge">${fmtDur(ct.minutes)}</div><div class="cth-badge">${tot} кусочков</div></div>
+    </div>
+    <div class="prog-row">
+      <div><div class="prog-pct">${pct}%</div><div style="font-size:12px;font-weight:700;color:var(--text3);">готово</div></div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
+    </div>
+    <div class="sec-lbl">Части задачи</div>`;
+    ct.parts.forEach((p,i)=>{
+      h+=`<div class="part-item${p.done?' done':''}">
+        <span class="pnum">${i+1}</span>
+        <span class="pname">${esc(p.name)}</span>
+        <span class="pdur">${p.minutes} мин</span>
+        <button class="pstart" onclick="startPartTimer('${ct.id}','${p.id}')" title="Запустить таймер">▶</button>
+        <div class="pchk" onclick="togglePart('${ct.id}','${p.id}')"></div>
+      </div>`;
+    });
+    h+=`<button class="add-part" onclick="addPart('${ct.id}')"><span style="font-size:18px;">+</span><span>Добавить кусочек</span></button>
+    <button class="btn btn-t" style="margin-top:4px;" onclick="S.cheeseTask=null;renderCheese();">← Другая задача</button>
+    <div style="height:20px;"></div>`;
+  }
+  cnt.innerHTML=h;
+}
+function chRow(t){
+  return `<div class="csel-row" onclick="S.cheeseTask='${t.id}';renderCheese();">
+    <span style="color:${t.color};font-size:14px;">●</span>
+    <span style="font-size:14px;font-weight:700;flex:1;">${esc(t.name)}</span>
+    <span style="font-size:12px;font-weight:600;color:var(--text3);">${fmtDur(t.minutes)}</span>
+    <span style="font-size:16px;color:var(--text3);">›</span>
+  </div>`;
+}
+function togglePart(tid,pid){
+  const t=S.tasks.find(x=>x.id===tid);if(!t)return;
+  const p=t.parts.find(x=>x.id===pid);if(!p)return;
+  p.done=!p.done;
+  if(t.parts.every(x=>x.done)){t.done=true;showToast('🎉 Задача полностью выполнена!');}
+  else showToast(p.done?'✅ Кусочек готов!':'Продолжай!');
+  save();renderCheese();
+}
+function startPartTimer(tid,pid){
+  S.selTask=tid;
+  const t=S.tasks.find(x=>x.id===tid);
+  const p=t?t.parts.find(x=>x.id===pid):null;
+  if(p)document.getElementById('t-task').textContent=p.name;
+  go('timer');
+}
+function addPart(tid){
+  const n=prompt('Название кусочка:');if(!n||!n.trim())return;
+  const ds=prompt('Сколько минут? (5-60):');const d=parseInt(ds);
+  if(!d||d<5||d>120)return;
+  const t=S.tasks.find(x=>x.id===tid);if(!t)return;
+  t.parts.push({id:'p'+Date.now(),name:n.trim(),minutes:d,done:false});
+  save();renderCheese();showToast('✅ Кусочек добавлен!');
+}
+
+// ===================== STATS =====================
+function renderStats(){
+  document.getElementById('stats-date').textContent=dateStr();
+  const t=S.tasks;
+  const done=t.filter(x=>x.done).length,total=t.length;
+  const fm=S.stats.focusMins;
+  const fh=Math.floor(fm/60),fr=fm%60;
+  const fs=fh?fh+'ч '+fr+'м':fr+'м';
+  const rate=total?Math.round((done/total)*100):0;
+  const big=t.filter(x=>x.minutes>=60),mid=t.filter(x=>x.minutes>=30&&x.minutes<60),sm=t.filter(x=>x.minutes<30);
+  const bp=big.length?Math.round((big.filter(x=>!x.done).length/big.length)*100):80;
+  const mp=mid.length?Math.round((mid.filter(x=>!x.done).length/mid.length)*100):45;
+  const sp=sm.length?Math.round((sm.filter(x=>!x.done).length/sm.length)*100):12;
+  let h=`<div class="stat-grid">
+    <div class="scard"><div class="sval" style="color:var(--coral)">${done}</div><div class="slbl">задач выполнено</div></div>
+    <div class="scard"><div class="sval" style="color:var(--teal)">${fm?fs:'0м'}</div><div class="slbl">в фокусе сегодня</div></div>
+    <div class="scard"><div class="sval" style="color:var(--purple)">${rate}%</div><div class="slbl">выполнено из ${total}</div></div>
+    <div class="scard"><div class="sval" style="color:var(--amber)">🔥 ${S.stats.streak}</div><div class="slbl">дней подряд</div></div>
+  </div>
+  <div class="sec-lbl">Что откладываешь чаще?</div>
+  <div class="bar-row"><span class="br-lbl">Большие (1+ч)</span><div class="br-bg"><div class="br-bar" style="width:${bp}%;background:var(--coral)"></div></div><span class="br-pct" style="color:var(--coral)">${bp}%</span></div>
+  <div class="bar-row"><span class="br-lbl">Средние (30–60)</span><div class="br-bg"><div class="br-bar" style="width:${mp}%;background:var(--amber)"></div></div><span class="br-pct" style="color:var(--amber)">${mp}%</span></div>
+  <div class="bar-row"><span class="br-lbl">Мелкие (&lt;30)</span><div class="br-bg"><div class="br-bar" style="width:${sp}%;background:var(--teal)"></div></div><span class="br-pct" style="color:var(--teal)">${sp}%</span></div>
+  <div class="insight">
+    <div class="ins-lbl">💡 Инсайт</div>
+    <div class="ins-txt">${getInsight(bp,rate,done,total)}</div>
+  </div>`;
+  if(t.length){
+    h+='<div class="sec-lbl">Все задачи</div>';
+    t.forEach(x=>{
+      h+=`<div class="task-item${x.done?' done':''}">
+        <div class="tdot" style="background:${x.color}"></div>
+        <span class="tn">${esc(x.name)}</span>
+        <span class="tdur">${fmtDur(x.minutes)}</span>
+        <div class="tchk"></div>
+      </div>`;
+    });
+  }
+  h+='<div style="height:20px;"></div>';
+  document.getElementById('stats-cnt').innerHTML=h;
+}
+function getInsight(bp,rate,done,total){
+  if(!total)return 'Добавь первую задачу и начни отслеживать прогресс!';
+  if(done===total)return 'Вау! Ты выполнил все задачи! Ты чемпион 🏆';
+  if(bp>=70)return `Большие задачи ты откладываешь на ${bp}% чаще. Разбей их через «Сыр»!`;
+  if(rate>=80)return `Отлично! ${rate}% задач выполнено. Так держать!`;
+  if(rate>=50)return 'Хороший прогресс! Попробуй метод «Лягушки» — сделай самое страшное первым.';
+  return 'Начни с одной маленькой задачи — первый шаг ломает привычку откладывать!';
+}
+
+// ===================== TOAST =====================
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ===================== INIT =====================
+load();
+S.timer.running=false;
+if(S.name||S.tasks.length>0){
+  document.getElementById('s-ob1').classList.remove('on');
+  cur='home';
+  document.getElementById('s-home').classList.add('on');
+  renderHome();
+}
+</script>
+
+  <!-- Offline bar -->
+  <div id="offline-bar" style="display:none;position:fixed;top:0;left:0;right:0;background:#1C1917;color:#fff;padding:10px 16px;font-size:13px;font-weight:700;font-family:'Nunito',sans-serif;align-items:center;justify-content:center;gap:8px;z-index:9999;">
+    <span>📵</span><span>Нет интернета — данные сохранены локально</span>
+  </div>
+  <!-- Install banner -->
+  <div id="install-banner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#1C1917;padding:14px 16px 28px;font-family:'Nunito',sans-serif;z-index:9999;align-items:center;gap:12px;border-radius:20px 20px 0 0;">
+    <span style="font-size:32px;">🐸</span>
+    <div style="flex:1;">
+      <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:2px;">Установи ProStop</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.6);font-weight:600;">Работает без интернета!</div>
+    </div>
+    <button onclick="triggerInstall()" style="background:#E8502A;border:none;border-radius:12px;padding:10px 16px;color:#fff;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;">Установить</button>
+    <button onclick="hideInstallBanner()" style="background:none;border:none;color:rgba(255,255,255,0.5);font-size:20px;cursor:pointer;padding:4px;">×</button>
+  </div>
+
+  <!-- PWA: Service Worker + Install -->
+  <script>
+  // Service Worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => {
+          reg.addEventListener('updatefound', () => {
+            const nw = reg.installing;
+            nw.addEventListener('statechange', () => {
+              if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+                showToast('🔄 Обновление установлено! Перезагрузи страницу.');
+              }
+            });
+          });
+        });
+    });
+  }
+
+  // Install banner
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    showInstallBanner();
+  });
+  window.addEventListener('appinstalled', () => {
+    hideInstallBanner();
+    showToast('✅ ProStop установлен на экран!');
+  });
+
+  function showInstallBanner() {
+    const b = document.getElementById('install-banner');
+    if (b) b.style.display = 'flex';
+  }
+  function hideInstallBanner() {
+    const b = document.getElementById('install-banner');
+    if (b) b.style.display = 'none';
+    deferredPrompt = null;
+  }
+  function triggerInstall() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(r => {
+      deferredPrompt = null;
+      if (r.outcome === 'accepted') showToast('🎉 Установка началась!');
+      hideInstallBanner();
+    });
+  }
+
+  // Offline detection
+  function updateOnline() {
+    const ob = document.getElementById('offline-bar');
+    if (ob) ob.style.display = navigator.onLine ? 'none' : 'flex';
+  }
+  window.addEventListener('online', () => { updateOnline(); showToast('✅ Снова онлайн!'); });
+  window.addEventListener('offline', () => { updateOnline(); showToast('📵 Нет интернета — работаем офлайн!'); });
+
+  // Hash routing for shortcuts
+  if (location.hash === '#timer') { window.addEventListener('load', () => go('timer')); }
+  if (location.hash === '#add') { window.addEventListener('load', () => { go('home'); setTimeout(openAdd, 300); }); }
+  </script>
+</body>
+</html>

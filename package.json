@@ -1,0 +1,11 @@
+{
+  "name": "prostop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ProStop — приложение для борьбы с прокрастинацией",
+  "scripts": {
+    "dev": "npx serve .",
+    "deploy": "vercel --prod",
+    "deploy:preview": "vercel"
+  }
+}
