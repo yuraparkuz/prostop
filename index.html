@@ -640,9 +640,9 @@ function autoSplit(name,mins){
 function saveTask(){
   const name=document.getElementById('tn-inp').value.trim();
   if(!name||!S.newDur)return;
-  const task={id:'t'+Date.now(),name,minutes:S.newDur,color:S.newClr,done:false,parts:S.newDur>=60?autoSplit(name,S.newDur):[]};
+  const task={id:'t'+Date.now(),name,minutes:S.newDur,color:S.newClr,done:false,parts:[]};
   S.tasks.push(task);save();closeModal();renderHome();showToast('✅ Задача добавлена!');
-  if(S.newDur>=60){setTimeout(()=>{S.cheeseTask=task.id;go('cheese');},900);}
+  if(S.newDur>=60){setTimeout(()=>{selectCheese(task.id);go('cheese');},900);}
 }
 
 // ===================== TIMER =====================
@@ -758,6 +758,11 @@ function startTaskTimer(id){
 }
 
 // ===================== CHEESE =====================
+function selectCheese(id){
+  const t=S.tasks.find(x=>x.id===id);
+  if(t&&(!t.parts||!t.parts.length)){t.parts=autoSplit(t.name,t.minutes);save();}
+  S.cheeseTask=id;renderCheese();
+}
 function renderCheese(){
   const cnt=document.getElementById('cheese-cnt');
   const ct=S.cheeseTask?S.tasks.find(t=>t.id===S.cheeseTask):null;
@@ -765,8 +770,12 @@ function renderCheese(){
   if(!ct){
     const unc=S.tasks.filter(t=>!t.done);
     if(!unc.length){
-      h=`<div class="empty-s"><div class="big-ico">🎉</div><p>Все задачи выполнены! Добавь новые на главной.</p><button class="btn btn-p" style="max-width:220px;margin-top:16px;" onclick="go('home')">На главную</button></div>`;
+      h=`<div class="empty-s"><div class="big-ico">🧀</div><p>Нет задач для разбивки.<br>Добавь задачу на главной!</p><button class="btn btn-p" style="max-width:220px;margin-top:16px;" onclick="go('home')">На главную</button></div>`;
     }else{
+      h+=`<div style="background:var(--card);border-radius:var(--rs);padding:14px;margin-bottom:14px;border:1px solid var(--border);">
+        <div style="font-size:15px;font-weight:800;margin-bottom:6px;">Как это работает?</div>
+        <div style="font-size:13px;font-weight:600;color:var(--text2);line-height:1.6;">Выбери задачу — она автоматически разобьётся на маленькие кусочки по 25 минут. Выполняй по одному — так даже большое задание не пугает!</div>
+      </div>`;
       const big=unc.filter(t=>t.minutes>=45);
       if(big.length){
         h+=`<div style="background:var(--amber-l);border-radius:var(--rs);padding:10px 12px;margin-bottom:10px;font-size:13px;font-weight:700;color:var(--amber-d);">💡 Лучшие кандидаты для разбивки:</div>`;
@@ -774,11 +783,12 @@ function renderCheese(){
         const sm=unc.filter(t=>t.minutes<45);
         if(sm.length){h+='<div class="sec-lbl">Остальные задачи</div>';sm.forEach(t=>{h+=chRow(t);});}
       }else{
-        h+='<div class="sec-lbl">Выбери задачу</div>';
+        h+='<div class="sec-lbl">Выбери задачу для разбивки</div>';
         unc.forEach(t=>{h+=chRow(t);});
       }
     }
   }else{
+    if(!ct.parts||!ct.parts.length){ct.parts=autoSplit(ct.name,ct.minutes);save();}
     const dc=ct.parts.filter(p=>p.done).length,tot=ct.parts.length;
     const pct=tot?Math.round((dc/tot)*100):0;
     h+=`<div class="cth">
@@ -790,6 +800,7 @@ function renderCheese(){
       <div><div class="prog-pct">${pct}%</div><div style="font-size:12px;font-weight:700;color:var(--text3);">готово</div></div>
       <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>
     </div>
+    <div style="background:var(--teal-l);border-radius:var(--rs);padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:700;color:var(--teal-d);line-height:1.5;">💡 Нажми ▶ чтобы запустить таймер на кусочек, или отмечай готовые галочкой справа</div>
     <div class="sec-lbl">Части задачи</div>`;
     ct.parts.forEach((p,i)=>{
       h+=`<div class="part-item${p.done?' done':''}">
@@ -807,9 +818,11 @@ function renderCheese(){
   cnt.innerHTML=h;
 }
 function chRow(t){
-  return `<div class="csel-row" onclick="S.cheeseTask='${t.id}';renderCheese();">
+  const hasParts=t.parts&&t.parts.length>0;
+  const badge=hasParts?`<span style="font-size:11px;font-weight:700;color:var(--teal);margin-left:4px;">✓ разбита</span>`:'';
+  return `<div class="csel-row" onclick="selectCheese('${t.id}')">
     <span style="color:${t.color};font-size:14px;">●</span>
-    <span style="font-size:14px;font-weight:700;flex:1;">${esc(t.name)}</span>
+    <span style="font-size:14px;font-weight:700;flex:1;">${esc(t.name)}${badge}</span>
     <span style="font-size:12px;font-weight:600;color:var(--text3);">${fmtDur(t.minutes)}</span>
     <span style="font-size:16px;color:var(--text3);">›</span>
   </div>`;
