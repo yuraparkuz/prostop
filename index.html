@@ -575,6 +575,32 @@ function updateThemeBtn(){
 }
 initTheme();
 
+// ===================== SOUND & HAPTICS =====================
+let audioCtx=null;
+function getAudioCtx(){
+  if(!audioCtx)audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended')audioCtx.resume();
+  return audioCtx;
+}
+function playTone(freq,dur,type='sine',vol=0.3){
+  try{
+    const ctx=getAudioCtx();
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.type=type;osc.frequency.value=freq;
+    gain.gain.setValueAtTime(vol,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+dur);
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.start();osc.stop(ctx.currentTime+dur);
+  }catch(e){}
+}
+function sndComplete(){playTone(523,.1);setTimeout(()=>playTone(659,.1),100);setTimeout(()=>playTone(784,.15),200);}
+function sndSessionEnd(){playTone(784,.15);setTimeout(()=>playTone(988,.15),150);setTimeout(()=>playTone(1047,.25),300);}
+function sndClick(){playTone(880,.06,'sine',0.15);}
+function sndDelete(){playTone(330,.12,'triangle',0.2);}
+function sndTimer(){playTone(440,.08);setTimeout(()=>playTone(440,.08),150);setTimeout(()=>playTone(554,.12),300);}
+function vibrate(pattern){try{navigator.vibrate&&navigator.vibrate(pattern);}catch(e){}}
+
 // ===================== STATE =====================
 let S = {
   name:'', method:null,
@@ -741,8 +767,8 @@ function toggleDone(id){
   const t=S.tasks.find(x=>x.id===id);
   if(!t)return;
   t.done=!t.done;
-  if(t.done){bumpStreak();showToast('✅ Задача выполнена!');}
-  else{showToast('↩ Задача снова активна');}
+  if(t.done){bumpStreak();sndComplete();vibrate([50,30,50]);showToast('✅ Задача выполнена!');}
+  else{sndClick();showToast('↩ Задача снова активна');}
   save();renderHome();
 }
 
@@ -772,7 +798,7 @@ function deleteTask(id,ev){
   S.tasks=S.tasks.filter(x=>x.id!==id);
   if(S.selTask===id)S.selTask=null;
   if(S.cheeseTask===id)S.cheeseTask=null;
-  save();renderHome();showToast('🗑 Задача удалена');
+  save();renderHome();sndDelete();vibrate(40);showToast('🗑 Задача удалена');
 }
 function deleteTaskFromEdit(){
   if(!editTaskId)return;
@@ -890,7 +916,7 @@ function saveTask(){
   const name=document.getElementById('tn-inp').value.trim();
   if(!name||!S.newDur)return;
   const task={id:'t'+Date.now(),name,minutes:S.newDur,color:S.newClr,done:false,parts:[]};
-  S.tasks.push(task);save();closeModal();renderHome();showToast('✅ Задача добавлена!');
+  S.tasks.push(task);save();closeModal();renderHome();sndClick();vibrate(30);showToast('✅ Задача добавлена!');
   if(S.newDur>=60){setTimeout(()=>{selectCheese(task.id);go('cheese');},900);}
 }
 
@@ -940,6 +966,7 @@ function updateProg(){
   document.getElementById('t-prog-fill').style.width=pct+'%';
 }
 function toggleTimer(){
+  vibrate(20);
   if(S.timer.running)pauseT();else startT();
 }
 function startT(){
@@ -970,6 +997,7 @@ function sessionEnd(){
   document.getElementById('t-play').textContent='▶';
   if(S.timer.phase==='work'){
     S.timer.done++;resetDailyFocus();S.stats.focusMins+=Math.round(S.timer.total/60);S.stats.focusToday+=Math.round(S.timer.total/60);bumpStreak();
+    sndSessionEnd();vibrate([100,50,100,50,200]);
     const cov=document.getElementById('cov');cov.classList.add('show');
     if(S.timer.done>=4){
       document.getElementById('cov-h').textContent='4 помидора! Ты супер! 🏆';
@@ -980,6 +1008,7 @@ function sessionEnd(){
     }
   }else{
     nextWorkSession();
+    sndTimer();vibrate([80,40,80]);
     showToast('Время работать! 💪');
   }
   save();
@@ -1090,8 +1119,9 @@ function togglePart(tid,pid){
   const t=S.tasks.find(x=>x.id===tid);if(!t)return;
   const p=t.parts.find(x=>x.id===pid);if(!p)return;
   p.done=!p.done;
-  if(t.parts.every(x=>x.done)){t.done=true;showToast('🎉 Задача полностью выполнена!');}
-  else showToast(p.done?'✅ Кусочек готов!':'Продолжай!');
+  if(t.parts.every(x=>x.done)){t.done=true;sndSessionEnd();vibrate([100,50,100,50,200]);showToast('🎉 Задача полностью выполнена!');}
+  else if(p.done){sndComplete();vibrate([50,30,50]);showToast('✅ Кусочек готов!');}
+  else{sndClick();showToast('Продолжай!');}
   save();renderCheese();
 }
 function startPartTimer(tid,pid){
